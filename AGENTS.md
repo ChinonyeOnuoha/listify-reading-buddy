@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Reading Buddy is client-only: recordings, photos and passage text live in browser memory (object URLs), never sent to a server — privacy requirement of the prototype.
+- Sample feedback data lives in src/lib/sample-feedback.ts and must stay visually labelled as SAMPLE, separate from user recordings.
