@@ -49,7 +49,7 @@ export function ReadStep(p: Props) {
       </section>
 
       {/* Mobile: fixed bottom dock. Desktop: sticky side panel. Passage gets bottom padding so it's never covered. */}
-      <aside className="fixed inset-x-0 bottom-0 z-10 border-t-[1.5px] border-border bg-card/95 p-4 shadow-soft backdrop-blur lg:sticky lg:top-6 lg:self-start lg:rounded-3xl lg:border-[1.5px] lg:p-5">
+      <aside className="fixed inset-x-0 bottom-0 z-10 border-t-[1.5px] border-border bg-card/95 p-4 backdrop-blur lg:sticky lg:top-6 lg:self-start lg:rounded-3xl lg:border-[1.5px] lg:p-5">
         <p className="text-sm text-muted-foreground" role="status" aria-live="polite">{message}</p>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div className="font-display text-3xl font-bold tabular-nums">{formatTime(p.elapsed)}</div>
