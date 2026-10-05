@@ -49,7 +49,7 @@ function Index() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+    <main className={`mx-auto max-w-5xl px-4 py-6 sm:py-10 ${step === "read" ? "pb-64 lg:pb-10" : ""}`}>
       <header className="text-center">
         <h1 className="text-3xl font-bold text-primary sm:text-4xl">Listify: Reading Buddy 📚</h1>
         <p className="mx-auto mt-2 max-w-xl text-muted-foreground">Make a little time to read aloud. I'll keep you company.</p>

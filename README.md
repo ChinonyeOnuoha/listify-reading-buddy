@@ -9,17 +9,15 @@ This is a separate, new project inspired by my original **Listify** to-do app (b
 
 It borrows Listify's plum, blush and peach palette, rounded controls and friendly voice. The original app and repository are untouched.
 
-## What works (real)
-- Daily reading target in minutes, with a progress bar.
-- Paste a passage; it stays visible (read-only) while recording.
-- Add a page photo or screenshot with a large preview.
-- Record, stop, play back and discard audio using the browser microphone.
-- Upload an audio file instead of recording.
-- Friendly message when the microphone is unavailable.
+## How a session works: Prepare → Read → Review
+1. **Prepare** — set a daily target, then choose "Paste your content" (text box appears) or "Upload your content" (multiple page photos/screenshots, numbered, with move up/down, replace and remove). Switching between the two keeps both. "Continue to reading" unlocks once text or at least one page is supplied.
+2. **Read** — the passage or pages fill the screen. Timer, target progress and Start/Stop recording stay together (a bottom dock on phones, a side panel on desktop). "Upload audio instead" is the secondary option. Reaching the target never stops the recording. A friendly message appears if the microphone is blocked.
+3. **Review** — play back the recording and see its duration. Discard the recording or start a new session (both ask for confirmation). "Explore sample feedback" opens labelled examples one at a time.
+
+Moving between steps keeps the target, passage, pages and audio.
 
 ## What is demonstrated with sample data
-- Feedback cards (repeated words, added/omitted/substituted words, pauses, pacing), a "no findings" case and an "uncertain" case.
-- These are clearly labelled **SAMPLE FEEDBACK** and are never presented as analysis of your recording.
+Six clearly labelled SAMPLE examples on a made-up passage: extra repetitions, missing/added/replaced words, pauses that may interrupt phrasing, pace changes, nothing found, and couldn't assess. Each shows the relevant words, an observation, one priority experiment for a new passage and optional extra tips. They are never presented as analysis of your recording.
 
 ## Not connected yet
 - Automatic text extraction from photos.
