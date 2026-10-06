@@ -1,38 +1,58 @@
-# Listify: Reading Buddy (working name)
+# Reading Buddy (RB)
 
-A first prototype of a reading-aloud companion. Set a daily target, paste a passage, record yourself reading, and play it back.
+A prototype reading-aloud companion. Choose a reading target, bring a passage (pasted text or photos of pages), record yourself reading, and play it back. A conceptual portfolio project exploring AI-assisted reading practice — the AI parts are deliberately not connected yet.
 
-## Inspiration
-This is a separate, new project inspired by my original **Listify** to-do app (built during AltSchool):
+## History
+Reading Buddy started life as **Listify: Reading Buddy**, a separate, new project inspired by my original **Listify** to-do app (built during AltSchool):
 - App: https://listify-a-to-do-app.vercel.app/
 - Repository: https://github.com/ChinonyeOnuoha/Listify--A-To-do-App
 
-It borrows Listify's plum, blush and peach palette, rounded controls and friendly voice. The original app and repository are untouched.
+It keeps Listify's plum, blush and peach palette and friendly voice. The visible branding is now the "RB" mark with a small open-book illustration. The original Listify app and repository are untouched.
 
-## How a session works: Prepare → Read → Review
-1. **Prepare** — set a daily target, then choose "Paste your content" (text box appears) or "Upload your content" (multiple page photos/screenshots, numbered, with move up/down, replace and remove). Switching between the two keeps both. "Continue to reading" unlocks once text or at least one page is supplied.
-2. **Read** — the passage or pages fill the screen. Timer, target progress and Start/Stop recording stay together (a bottom dock on phones, a side panel on desktop). "Upload audio instead" is the secondary option. Reaching the target never stops the recording. A friendly message appears if the microphone is blocked.
-3. **Review** — play back the recording and see its duration. Discard the recording or start a new session (both ask for confirmation). "Explore sample feedback" opens labelled examples one at a time.
+## How a session works
+There's no stepper — each part appears when it's needed (progressive disclosure), and contextual buttons move you on.
 
-Moving between steps keeps the target, passage, pages and audio.
+1. **Welcome.** A fresh visit shows only the logo, "What are you reading today?", the reading-target card and a sample-session link.
+2. **Today's reading target.** Choose 5, 10 or 15 min, or Custom. Nothing is preselected. Custom shows a labelled minutes field and a small "Set target" button; the next card only appears once a whole number from 1–180 is confirmed. Once set, the target becomes a compact row with a directly editable minutes field; changing it keeps everything else.
+3. **Bring something to read.** Two tiles: "Paste your content" (labelled text area) or "Upload your content" (photos or screenshots of pages). Neither input appears until you choose. Switching keeps both drafts.
+   - Pages show in one horizontal strip of equal, fixed-height frames: two on desktop, one plus a peek of the next on phones. Images are contained, never stretched or cropped. Each page has a "⋯" menu (Move earlier, Move later, Replace…, Remove) that works with keyboard and screen readers; there is no drag-only reordering. Round gallery arrows only scroll: the right arrow shows until the end, the left arrow shows only at the end, and neither shows when everything fits. Touch, trackpad and keyboard scrolling always work.
+   - Images that can't be opened (e.g. some HEIC photos) are rejected with a message, so a page in the strip is always a usable page.
+   - **Content-ready layout.** Once a page has loaded, or pasted text is "done" (right after a paste, or when you leave the text box — never on the first typed character), the content comes into focus: the welcome becomes "Your reading is ready", the target shrinks to a centred "Today's target" row, the Paste/Upload tiles collapse, and "Your pages" (with "N pages added") or "Your content" ("Pasted text") sits directly under the card header with a small underlined **Change content** link. The text box is the same element throughout, so focus, cursor and typing are never interrupted.
+   - **Change content** reopens the tiles with a **Cancel** link back to your current content. Both drafts are kept. Picking a method that already has content, adding pages, or finishing a paste switches straight back. Removing all pages or all text returns that method to its empty state.
+   - After the first upload the previews scroll into view; adding more pages scrolls the strip to the first new one (instantly if you prefer reduced motion).
+   - **Continue bar.** While usable content exists (non-whitespace text or at least one loaded page), an opaque bar is fixed to the bottom on every screen size, with a status ("3 pages ready" / "Passage ready") and the only "Continue to reading →" button — the one fully pill-shaped control. Full-width on phones (with the iPhone safe area respected), right-aligned on desktop. The page reserves the bar's measured height plus 24px, so it never covers previews, editing controls or helper text. While an on-screen keyboard is open over a text field, the bar moves into the page flow below the content instead of floating over the field, and returns when the keyboard closes. It hides when there's no usable content.
+4. **Read.** A roomy passage card and a compact recording card (beside it on desktop, stacked above it on phones — nothing overlays the passage). Start/Stop recording, a timer and progress towards the target; reaching the target never stops recording. "Upload audio instead" is the alternative. Editing is paused while recording, but page-by-page navigation still works. On phones, a "Finished? Stop recording" button also appears at the end of the passage while recording. If the microphone is unavailable, a friendly message appears and upload becomes the main action.
+5. **Review.** "Reading done 🙌🏾 Have a listen back. AI feedback isn't connected yet." Playback and duration, "Discard recording" and "Start a new session" (both confirm first; a new session keeps your target). "Back to reading" keeps everything. Replacing a recording from the reading view also asks first.
 
-## What is demonstrated with sample data
-Six clearly labelled SAMPLE examples on a made-up passage: extra repetitions, missing/added/replaced words, pauses that may interrupt phrasing, pace changes, nothing found, and couldn't assess. Each shows the relevant words, an observation, one priority experiment for a new passage and optional extra tips. They are never presented as analysis of your recording.
+## Sample session
+"Just exploring? Try a sample session →" (an understated text link under the preparation cards) opens a walkthrough that needs no target, no passage and no microphone: a short original sample passage → sample review → sample feedback, ending with "Start my session" or "Explore the sample again". A "Sample session" label and "Exit sample" stay in the header throughout.
+
+There's no demo audio file in the project, so the sample review says so plainly instead of showing a player. The sample keeps its own state: it never counts towards your target or touches your passage, pages or recording, and exiting returns you to your setup exactly as you left it.
+
+## Sample feedback
+Six clearly labelled SAMPLE examples, one at a time with tabs and Previous/Next: Repetitions, Missing/added/replaced words, Pauses, Pacing changes, No findings, Uncertainty. Each separates the **observation** (with the relevant words beside it) from an **optional experiment for a new passage**. The copy never guesses causes, never treats accents as errors (only which word was read is compared), never promises improvement and never asks for a reread. Status tags keep "Nothing found in the areas checked" visibly different from "Couldn't assess confidently", and frame pauses and pace changes as moments to review, not mistakes. After a real recording, "Explore sample feedback" opens the same examples — they're never presented as analysis of your audio.
+
+## Visual design
+- **Colours (solid, no gradients):** plum `#65083E` (logo, primary actions, links, selected borders); headings `#491332`; main text and labels `#653B54`; supporting text `#795C6E`; peach `#F5D5C3` (restrained accents); ivory `#FAF7F2` (cards); pale blush `#F6EAE9` (page). Contrast on their actual backgrounds: headings 12.4–13.8:1, main text 6.6–8.5:1, supporting text 5.0–5.5:1 on ivory/blush (it's 4.3:1 on peach, so supporting text is never placed on peach), field/tile edges `#8F7A87` 3.4–3.7:1.
+- **Type:** Manrope for the interface. Main headings 34px/600 on desktop (28px on phones), card headings 20px/500, labels 16px/500, body 16px/400 with a 1.6 line height. Only the "RB" monogram uses a serif (DM Serif Display), compact with the B slightly overlapping the R.
+- **Layout:** centred content and headings; functional content left-aligned inside 26px-radius cards with 16px inner tiles and frames. About 24px between cards and 40px padding on desktop; 16px between cards and 20–28px padding on phones. Primary actions are solid plum with moderately rounded (14px) corners; "Continue to reading" is the only full pill. "Add pages" is a 12px-radius outlined button with a small plus. Icons are 16–20px, 8px from their labels.
+- **Header:** compact, sticky and opaque, with the serif RB monogram and the small book illustration (plus "Exit sample" during the sample). No navigation menu.
+- **Motion:** newly revealed sections fade in gently; this, the recording pulse and smooth gallery scrolling are switched off for people who prefer reduced motion.
 
 ## Not connected yet
 - Automatic text extraction from photos.
 - Live AI analysis of recordings.
-- No servers, paid services or AI providers are used. Passage text, photos and recordings stay in the current browser tab.
+- No servers, paid services or AI providers are used. Passage text, photos and recordings stay in the current browser tab (the only outside request is the Google Fonts stylesheet).
 
 ## Run it
 ```bash
 bun install
 bun run dev
 ```
-Then open the local URL shown in the terminal.
+Or, without Bun: `npm install --no-package-lock` then `npm run dev`. Open the local URL shown in the terminal (usually http://localhost:8080).
 
 ## AI assistance
-The code, layout, sample feedback text and this README were drafted with Lovable (an AI-assisted builder) from my written brief. Product direction, tone and review are mine.
+The first version (code, layout, sample feedback text and README) was drafted with Lovable (an AI-assisted builder) from my written brief. Later refinements on the `feature/guided-reading-flow` branch — the guided flow, the editorial visual pass, and this RB redesign with progressive disclosure and the sample session — were made with Claude Code from my briefs and reference mock-ups. Product direction, tone and review are mine.
 
 ## Testing
 See `TESTING_LOG.md`. Never commit real recordings or API keys.

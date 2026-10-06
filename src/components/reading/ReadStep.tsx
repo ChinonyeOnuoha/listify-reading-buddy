@@ -1,4 +1,7 @@
-import { ArrowLeft, Mic, Square, Upload } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowLeft, Headphones, Mic, Square, Upload } from "lucide-react";
+import { ConfirmInline } from "./ConfirmInline";
+import { PassageView } from "./PassageView";
 import type { PageImage } from "./PrepareStep";
 import { formatTime } from "./useRecorder";
 
@@ -10,72 +13,157 @@ type Props = {
   recording: boolean;
   micError: boolean;
   elapsed: number;
-  hasTake: boolean;
+  takeDuration: number | null;
   onStart: () => void;
   onStop: () => void;
   onUpload: (f: File) => void;
   onBack: () => void;
+  onReview: () => void;
 };
 
 export function ReadStep(p: Props) {
-  const pct = Math.min(100, (p.elapsed / (p.target * 60)) * 100);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingReplace, setPendingReplace] = useState<null | "record" | "upload">(null);
+  const hasTake = p.takeDuration !== null;
+  // While idle with a recording, the timer shows that recording's length so the numbers agree.
+  const shown = p.recording ? p.elapsed : (p.takeDuration ?? 0);
+  const pct = Math.min(100, (shown / (p.target * 60)) * 100);
   const message = p.micError
-    ? "The mic isn't available right now 🎙️ You can allow microphone access or upload a recording."
+    ? "The mic isn't available right now 🎙️ You can allow microphone access in your browser, or upload a recording instead."
     : p.recording
       ? "I'm recording 🎙️ Take your time."
-      : "Got a page in mind? Let's give it a voice 📖";
+      : hasTake
+        ? "You already have a recording. Listen back, or record again."
+        : "Got a page in mind? Let's give it a voice 📖";
+
+  // An existing recording is only replaced after a confirm.
+  const begin = (kind: "record" | "upload") => {
+    if (hasTake) return setPendingReplace(kind);
+    run(kind);
+  };
+  const run = (kind: "record" | "upload") => {
+    setPendingReplace(null);
+    if (kind === "record") p.onStart();
+    else fileRef.current?.click();
+  };
+
+  const row = "btn-quiet w-full justify-start";
 
   return (
-    <div className="grid gap-5 pb-56 lg:grid-cols-[minmax(0,1fr)_20rem] lg:pb-0">
-      <section className="card-soft p-5 sm:p-6" aria-label="Your passage">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <button className="pill pill-ghost px-3 py-1.5 text-sm" onClick={p.onBack} disabled={p.recording}>
-            <ArrowLeft className="size-4" aria-hidden /> Edit passage
-          </button>
-          {p.recording && <span className="text-sm font-bold text-ember">● Recording · read-only</span>}
+    // Desktop: roomy passage card + compact controls card beside it. Phones: controls card first, passage below — nothing overlays the text.
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-[30px]">
+      <section aria-label="Your passage" className="card order-2 min-w-0 lg:order-1">
+        <button className="btn-quiet -mt-2 -ml-3" onClick={p.onBack} disabled={p.recording}>
+          <ArrowLeft className="size-4" aria-hidden /> Edit passage
+        </button>
+        {p.recording && (
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="size-2 rounded-full bg-primary" aria-hidden /> Recording · editing is paused until you stop
+          </p>
+        )}
+        <div className="mt-5">
+          <PassageView text={p.mode === "paste" ? p.text : undefined} images={p.mode === "upload" ? p.images : undefined} />
         </div>
-        {p.mode === "paste" ? (
-          <div className="reading-text mx-auto">{p.text}</div>
-        ) : (
-          <ol className="space-y-4">
-            {p.images.map((img, i) => (
-              <li key={img.id}>
-                <div className="mb-1 text-sm font-bold text-muted-foreground">Page {i + 1}</div>
-                <img src={img.url} alt={`Page ${i + 1}`} className="w-full rounded-xl" />
-              </li>
-            ))}
-          </ol>
+        {/* Phones only: finishing a long passage shouldn't mean scrolling back up to stop. */}
+        {p.recording && (
+          <button className="btn-primary rec-pulse mt-8 w-full lg:hidden" onClick={p.onStop}>
+            <Square className="size-4" aria-hidden /> Finished? Stop recording
+          </button>
         )}
       </section>
 
-      {/* Mobile: fixed bottom dock. Desktop: sticky side panel. Passage gets bottom padding so it's never covered. */}
-      <aside className="fixed inset-x-0 bottom-0 z-10 border-t-[1.5px] border-border bg-card/95 p-4 backdrop-blur lg:sticky lg:top-6 lg:self-start lg:rounded-3xl lg:border-[1.5px] lg:p-5">
-        <p className="text-sm text-muted-foreground" role="status" aria-live="polite">{message}</p>
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <div className="font-display text-3xl font-bold tabular-nums">{formatTime(p.elapsed)}</div>
-          <div className="text-sm text-muted-foreground">of {p.target} min goal</div>
+      <aside aria-label="Recording controls" className="card order-1 lg:sticky lg:top-24 lg:order-2 lg:p-8">
+        <h2 className="text-xl font-medium">Your reading</h2>
+        <p className="mt-1 text-sm text-muted-foreground" role="status" aria-live="polite">
+          {message}
+        </p>
+
+        <div className="mt-5 flex items-baseline justify-between gap-3 lg:block">
+          <div className="text-[2rem] leading-none font-semibold tabular-nums">{formatTime(shown)}</div>
+          <div className="text-muted-foreground lg:mt-2">of {p.target} min target</div>
         </div>
-        <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Progress towards daily target">
-          <div className="h-full rounded-full bg-ember transition-all" style={{ width: `${pct}%` }} />
+        <div
+          className="mt-4 h-2 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Progress towards today's target"
+        >
+          <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${pct}%` }} />
         </div>
-        {pct >= 100 && p.recording && (
-          <p className="mt-1 text-sm font-bold">Target reached 🎯 Keep going as long as you like.</p>
+        {pct >= 100 && p.recording && <p className="mt-2 text-sm font-medium">Target reached 🎯 Keep going as long as you like.</p>}
+
+        {pendingReplace ? (
+          <ConfirmInline
+            className="mt-5"
+            message={
+              pendingReplace === "record"
+                ? "Record again? This replaces your current recording."
+                : "Upload audio? This replaces your current recording."
+            }
+            confirmLabel={pendingReplace === "record" ? "Yes, record again" : "Yes, choose a file"}
+            onConfirm={() => run(pendingReplace)}
+            onCancel={() => setPendingReplace(null)}
+          />
+        ) : (
+          <div className="mt-6">
+            {p.recording ? (
+              <button className="btn-primary rec-pulse w-full" onClick={p.onStop}>
+                <Square className="size-4" aria-hidden /> Stop recording
+              </button>
+            ) : hasTake ? (
+              <button className="btn-primary w-full" onClick={p.onReview}>
+                <Headphones className="size-[18px]" aria-hidden /> Listen back
+              </button>
+            ) : p.micError ? (
+              <button className="btn-primary w-full" onClick={() => begin("upload")}>
+                <Upload className="size-[18px]" aria-hidden /> Upload audio instead
+              </button>
+            ) : (
+              <button className="btn-primary w-full" onClick={() => begin("record")}>
+                <Mic className="size-[18px]" aria-hidden /> Start recording
+              </button>
+            )}
+
+            {/* Secondary actions: stacked single-line rows, icon 8px from its label. */}
+            {!p.recording && (
+              <div className="mt-3 flex flex-col border-t border-border pt-2">
+                {hasTake ? (
+                  <>
+                    <button className={row} onClick={() => begin("record")}>
+                      <Mic className="size-4 shrink-0" aria-hidden /> Record again
+                    </button>
+                    <button className={row} onClick={() => begin("upload")}>
+                      <Upload className="size-4 shrink-0" aria-hidden /> Upload audio
+                    </button>
+                  </>
+                ) : p.micError ? (
+                  <button className={row} onClick={() => begin("record")}>
+                    <Mic className="size-4 shrink-0" aria-hidden /> Try the microphone again
+                  </button>
+                ) : (
+                  <button className={row} onClick={() => begin("upload")}>
+                    <Upload className="size-4 shrink-0" aria-hidden /> Upload audio instead
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
-        <div className="mt-3 flex flex-col gap-2">
-          {p.recording ? (
-            <button className="pill pill-primary rec-pulse w-full" onClick={p.onStop}>
-              <Square className="size-5" aria-hidden /> Stop recording
-            </button>
-          ) : (
-            <button className="pill pill-primary w-full" onClick={p.onStart}>
-              <Mic className="size-5" aria-hidden /> {p.hasTake ? "Record a new take" : "Start recording"}
-            </button>
-          )}
-          <label className={`pill pill-ghost w-full cursor-pointer py-2 text-sm ${p.recording ? "pointer-events-none opacity-45" : ""}`}>
-            <Upload className="size-4" aria-hidden /> Upload audio instead
-            <input type="file" accept="audio/*" className="sr-only" disabled={p.recording} onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onUpload(f); e.target.value = ""; }} />
-          </label>
-        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="audio/*"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) p.onUpload(f);
+            e.target.value = "";
+          }}
+        />
       </aside>
     </div>
   );

@@ -1,154 +1,245 @@
-import { ArrowDown, ArrowRight, ArrowUp, ClipboardPaste, ImagePlus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
+import { Check, ClipboardPaste, Info, MoreHorizontal, Plus, Upload } from "lucide-react";
+import { PageGallery } from "./PageGallery";
 
 export type PageImage = { id: string; url: string; name: string };
 export type InputMode = "paste" | "upload" | null;
 
 type Props = {
-  target: number;
-  setTarget: (n: number) => void;
   mode: InputMode;
-  setMode: (m: InputMode) => void;
+  onSelectMode: (m: Exclude<InputMode, null>) => void;
   text: string;
   setText: (t: string) => void;
   images: PageImage[];
   setImages: (fn: (prev: PageImage[]) => PageImage[]) => void;
-  canContinue: boolean;
-  onContinue: () => void;
+  /** Content is ready and the choices are collapsed: show "Your pages" / "Your content" first. */
+  collapsed: boolean;
+  /** "Change content" reopened the choices. */
+  changing: boolean;
+  onChangeContent: () => void;
+  onCancelChange: () => void;
+  /** Pasted text is "done" (after a paste, or when leaving the field). */
+  onPasteCommit: () => void;
+  /** Pages were successfully added. */
+  onPagesAdded: () => void;
 };
 
-const toImage = (f: File): PageImage => ({ id: crypto.randomUUID(), url: URL.createObjectURL(f), name: f.name });
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Only pages that actually decode are added, so "at least one page" always means a usable image. */
+async function loadPage(f: File): Promise<PageImage | null> {
+  const url = URL.createObjectURL(f);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return { id: crypto.randomUUID(), url, name: f.name };
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+}
+
+/** "Bring something to read" → once content is ready, "Your pages" / "Your content". */
 export function PrepareStep(p: Props) {
-  const addFiles = (files: FileList | null) => {
+  const [failed, setFailed] = useState<string[]>([]);
+  const [reveal, setReveal] = useState<{ id: string; n: number } | null>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const pageCount = useRef(p.images.length);
+
+  // After the first successful upload, bring the previews into view (instant for reduced motion).
+  useEffect(() => {
+    const before = pageCount.current;
+    pageCount.current = p.images.length;
+    if (before === 0 && p.images.length > 0) {
+      requestAnimationFrame(() =>
+        cardRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" }),
+      );
+    }
+  }, [p.images.length]);
+
+  // When the paste layout settles, keep the caret's field on screen; focus and cursor are untouched.
+  useEffect(() => {
+    const ta = editorRef.current;
+    if (p.collapsed && ta && document.activeElement === ta) ta.scrollIntoView({ block: "nearest" });
+  }, [p.collapsed]);
+
+  const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/")).map(toImage);
-    p.setImages((prev) => [...prev, ...list]);
+    const list = Array.from(files);
+    const loaded = await Promise.all(list.map(loadPage));
+    setFailed(list.filter((_, i) => !loaded[i]).map((f) => f.name));
+    const ok = loaded.filter((x): x is PageImage => !!x);
+    if (!ok.length) return;
+    p.setImages((prev) => [...prev, ...ok]);
+    p.onPagesAdded();
+    // Reveal the first newly added page in the strip.
+    setReveal((r) => ({ id: ok[0]!.id, n: (r?.n ?? 0) + 1 }));
   };
   const move = (i: number, d: -1 | 1) =>
     p.setImages((prev) => {
+      const a = prev[i];
+      const b = prev[i + d];
+      if (!a || !b) return prev;
       const next = [...prev];
-      [next[i], next[i + d]] = [next[i + d], next[i]];
+      next[i] = b;
+      next[i + d] = a;
       return next;
     });
-  const remove = (id: string) =>
-    p.setImages((prev) => {
-      const hit = prev.find((x) => x.id === id);
-      if (hit) URL.revokeObjectURL(hit.url);
-      return prev.filter((x) => x.id !== id);
-    });
-  const replace = (id: string, f?: File) => {
+  const remove = (id: string) => {
+    const hit = p.images.find((x) => x.id === id);
+    if (hit) URL.revokeObjectURL(hit.url);
+    p.setImages((prev) => prev.filter((x) => x.id !== id));
+  };
+  const replace = async (id: string, f?: File) => {
     if (!f) return;
-    p.setImages((prev) =>
-      prev.map((x) => {
-        if (x.id !== id) return x;
-        URL.revokeObjectURL(x.url);
-        return { ...toImage(f), id };
-      }),
-    );
+    const page = await loadPage(f);
+    if (!page) return setFailed([f.name]);
+    setFailed([]);
+    const old = p.images.find((x) => x.id === id);
+    if (old) URL.revokeObjectURL(old.url);
+    p.setImages((prev) => prev.map((x) => (x.id === id ? { ...page, id } : x)));
   };
 
-  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string) => (
-    <button
-      type="button"
-      aria-pressed={p.mode === m}
-      onClick={() => p.setMode(m)}
-      className={`flex items-center gap-3 rounded-2xl border-[1.5px] p-4 text-left font-bold transition ${
-        p.mode === m ? "border-primary bg-primary text-primary-foreground" : "border-peach-strong bg-peach hover:bg-accent"
-      }`}
-    >
-      <Icon className="size-5 shrink-0" aria-hidden /> {label}
+  // Leaving the editor commits the text — unless focus moved to the input choices, so a click there isn't lost to a layout change.
+  const onEditorBlur = (e: FocusEvent<HTMLTextAreaElement>) => {
+    const to = e.relatedTarget as HTMLElement | null;
+    if (to?.closest("[data-input-choices]")) return;
+    if (p.text.trim()) p.onPasteCommit();
+  };
+
+  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string, helper: string) => (
+    <button type="button" aria-pressed={p.mode === m} onClick={() => p.onSelectMode(m)} className="tile relative">
+      <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+      <span className="min-w-0 pr-6">
+        <span className="block font-medium">{label}</span>
+        <span className="block text-sm text-muted-foreground">{helper}</span>
+      </span>
+      {p.mode === m && (
+        <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Check className="size-3" strokeWidth={3} aria-hidden />
+        </span>
+      )}
     </button>
   );
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <section className="card-soft p-5 sm:p-6">
-        <label htmlFor="target" className="font-display text-xl font-bold">Today's reading target</label>
-        <div className="mt-3 flex items-center gap-3">
-          <input
-            id="target"
-            type="number"
-            min={1}
-            max={180}
-            value={p.target}
-            onChange={(e) => p.setTarget(Math.max(1, Math.min(180, Number(e.target.value) || 1)))}
-            className="field w-28 text-lg font-bold"
-          />
-          <span className="text-muted-foreground">minutes ⏱️</span>
-        </div>
-      </section>
-
-      <section className="card-soft p-5 sm:p-6">
-        <h2 className="text-xl font-bold">What are you reading today?</h2>
-        <p className="mt-1 text-muted-foreground">Pick one — you can switch any time without losing anything 📖</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {choice("paste", ClipboardPaste, "Paste your content")}
-          {choice("upload", Upload, "Upload your content")}
-        </div>
-
-        {p.mode === "paste" && (
-          <div className="mt-5">
-            <label htmlFor="passage" className="text-sm font-bold">Paste the exact words you plan to read</label>
-            <textarea
-              id="passage"
-              value={p.text}
-              onChange={(e) => p.setText(e.target.value.slice(0, 10000))}
-              rows={9}
-              placeholder="Paste your passage here…"
-              className="field reading-text mt-2 max-w-none"
-            />
-          </div>
-        )}
-
-        {p.mode === "upload" && (
-          <div className="mt-5 space-y-4">
-            <p className="rounded-2xl bg-accent/60 p-3 text-sm">
-              You can read from your photo. Automatic text extraction isn't connected yet. 📝
-              Pasted text will be needed later for word-by-word comparison.
-            </p>
-            {p.images.length > 0 && (
-              <ol className="space-y-4">
-                {p.images.map((img, i) => (
-                  <li key={img.id} className="rounded-2xl bg-peach p-3">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-primary px-3 py-0.5 text-sm font-bold text-primary-foreground">
-                        Page {i + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{img.name}</span>
-                    </div>
-                    <img src={img.url} alt={`Page ${i + 1}: ${img.name}`} className="max-h-[60vh] w-full rounded-xl object-contain" />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button className="pill pill-ghost px-3 py-1.5 text-sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move page ${i + 1} up`}>
-                        <ArrowUp className="size-4" aria-hidden /> Up
-                      </button>
-                      <button className="pill pill-ghost px-3 py-1.5 text-sm" disabled={i === p.images.length - 1} onClick={() => move(i, 1)} aria-label={`Move page ${i + 1} down`}>
-                        <ArrowDown className="size-4" aria-hidden /> Down
-                      </button>
-                      <label className="pill pill-ghost cursor-pointer px-3 py-1.5 text-sm">
-                        <RefreshCw className="size-4" aria-hidden /> Replace
-                        <input type="file" accept="image/*" className="sr-only" onChange={(e) => { replace(img.id, e.target.files?.[0]); e.target.value = ""; }} />
-                      </label>
-                      <button className="pill pill-ghost px-3 py-1.5 text-sm" onClick={() => remove(img.id)}>
-                        <Trash2 className="size-4" aria-hidden /> Remove
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-            <label className="pill pill-ghost cursor-pointer">
-              <ImagePlus className="size-5" aria-hidden /> {p.images.length ? "Add more pages" : "Add page photos or screenshots"}
-              <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-          </div>
-        )}
-      </section>
-
-      <div className="flex justify-end">
-        <button className="pill pill-primary w-full sm:w-auto" disabled={!p.canContinue} onClick={p.onContinue}>
-          Continue to reading <ArrowRight className="size-5" aria-hidden />
-        </button>
-      </div>
+  const addPages = (
+    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+      <label className="btn-secondary cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
+        <Plus className="size-4" aria-hidden /> Add pages
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {p.images.length > 1 && (
+        <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <MoreHorizontal className="size-4 shrink-0" aria-hidden /> Use the page menu to reorder
+        </p>
+      )}
+      <p className="flex items-start justify-center gap-2 text-sm text-muted-foreground sm:ml-auto">
+        <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+        {p.images.length ? "Text extraction isn't connected yet." : "You can read from your photos. Text extraction isn't connected yet."}
+      </p>
     </div>
+  );
+
+  const title = p.collapsed ? (p.mode === "upload" ? "Your pages" : "Your content") : "Bring something to read";
+
+  // Structure stays stable across states so the text editor is never remounted (focus and caret survive).
+  return (
+    <section ref={cardRef} id="content-card" className="card" aria-labelledby="content-h">
+      <div className="flex items-start justify-between gap-x-4 gap-y-1">
+        <div>
+          <h2 id="content-h" tabIndex={-1} className="text-xl font-medium outline-none">
+            {title}
+          </h2>
+          {p.collapsed && (
+            <p className="text-sm text-muted-foreground">
+              {p.mode === "upload" ? `${p.images.length} ${p.images.length === 1 ? "page" : "pages"} added` : "Pasted text"}
+            </p>
+          )}
+        </div>
+        {p.collapsed && (
+          <button className="text-link mt-1 text-sm whitespace-nowrap" onClick={p.onChangeContent}>
+            Change content
+          </button>
+        )}
+        {p.changing && (
+          <button className="text-link mt-1 text-sm whitespace-nowrap" onClick={p.onCancelChange}>
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {!p.collapsed && (
+        <div className="reveal" data-input-choices>
+          <p className="mt-1 text-muted-foreground">
+            {p.changing ? "Pick a method — your text and pages are both kept." : "Choose how you'd like to add your passage."}
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-5" role="group" aria-label="How to add your passage">
+            {choice("paste", ClipboardPaste, "Paste your content", "Use text you've copied")}
+            {choice("upload", Upload, "Upload your content", "Add photos or screenshots")}
+          </div>
+        </div>
+      )}
+
+      {p.mode === "paste" && (
+        <div className={p.collapsed ? "mt-4" : "mt-8"}>
+          {!p.collapsed && (
+            <>
+              <label htmlFor="passage" className="font-medium">
+                Your passage
+              </label>
+              <p id="passage-hint" className="text-sm text-muted-foreground">
+                Paste the exact words you plan to read.
+              </p>
+            </>
+          )}
+          <textarea
+            ref={editorRef}
+            id="passage"
+            aria-labelledby={p.collapsed ? "content-h" : undefined}
+            aria-describedby={p.collapsed ? undefined : "passage-hint"}
+            value={p.text}
+            onChange={(e) => p.setText(e.target.value.slice(0, 10000))}
+            // Commit after the paste lands, without touching focus or the caret.
+            onPaste={() => setTimeout(p.onPasteCommit, 0)}
+            onBlur={onEditorBlur}
+            rows={9}
+            className="field reading-text mt-2 max-w-none text-base"
+          />
+          {p.collapsed && <p className="mt-2 text-sm text-muted-foreground">You can still edit your passage.</p>}
+        </div>
+      )}
+
+      {p.mode === "upload" && (
+        <div className={p.collapsed ? "mt-4" : "mt-8"}>
+          {p.images.length > 0 ? (
+            <>
+              <PageGallery images={p.images} onMove={move} onRemove={remove} onReplace={replace} reveal={reveal} />
+              <div className="mt-6">{addPages}</div>
+            </>
+          ) : (
+            <>
+              <p>Add photos or screenshots of the pages you'll read.</p>
+              <div className="mt-4">{addPages}</div>
+            </>
+          )}
+          {failed.length > 0 && (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              Couldn't open {failed.join(", ")}. Try a JPG or PNG photo or screenshot.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

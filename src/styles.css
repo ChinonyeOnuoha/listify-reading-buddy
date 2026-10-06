@@ -5,8 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-display: "Manrope", system-ui, sans-serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-logo: "DM Serif Display", Georgia, serif;
+  --color-heading: var(--heading);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -26,8 +28,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-peach: var(--peach);
-  --color-peach-strong: var(--peach-strong);
-  --color-ember: var(--ember);
+  --color-tint: var(--tint);
+  --color-line: var(--line);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -36,98 +38,199 @@
 }
 
 :root {
-  --radius: 1.25rem;
-  --background: oklch(0.955 0.025 10);
-  --foreground: oklch(0.28 0.08 350);
-  --card: oklch(0.985 0.012 40);
-  --card-foreground: oklch(0.28 0.08 350);
-  --primary: oklch(0.36 0.13 350);
-  --primary-foreground: oklch(0.97 0.02 40);
-  --secondary: oklch(0.93 0.04 20);
-  --secondary-foreground: oklch(0.32 0.1 350);
-  --muted: oklch(0.94 0.025 25);
-  --muted-foreground: oklch(0.48 0.06 350);
-  --accent: oklch(0.9 0.06 45);
-  --accent-foreground: oklch(0.32 0.1 350);
-  --peach: oklch(0.96 0.03 50);
-  --peach-strong: oklch(0.8 0.1 40);
-  --ember: oklch(0.66 0.19 38);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.86 0.06 30);
-  --input: oklch(0.86 0.06 30);
-  --ring: oklch(0.36 0.13 350);
-  --gradient-page: linear-gradient(135deg, oklch(0.95 0.03 15), oklch(0.975 0.015 350));
-  --shadow-soft: 0 12px 32px -16px color-mix(in oklab, var(--primary) 35%, transparent);
+  --radius: 0.75rem;
+  /* Brand palette — solid colours only. */
+  --plum: #65083e; /* logo, primary buttons, selected borders, links */
+  --heading-plum: #491332; /* headings */
+  --text-plum: #653b54; /* main text and labels */
+  --support-plum: #795c6e; /* supporting text (never on peach: 4.3:1) */
+  --peach: #f5d5c3; /* restrained secondary accents */
+  --ivory: #faf7f2; /* card surfaces */
+  --blush: #f6eae9; /* page background */
+
+  --background: var(--blush);
+  --heading: var(--heading-plum);
+  --foreground: var(--text-plum);
+  --card: var(--ivory);
+  --card-foreground: var(--text-plum);
+  --primary: var(--plum);
+  --primary-foreground: var(--ivory);
+  --secondary: var(--blush);
+  --secondary-foreground: var(--text-plum);
+  --muted: #f1e8e3;
+  --muted-foreground: var(--support-plum);
+  --accent: var(--peach);
+  --accent-foreground: var(--text-plum);
+  --destructive: #a11d2b;
+  --destructive-foreground: var(--ivory);
+  /* Derived, still solid: a quiet divider, a field/tile edge with ≥3:1 contrast on ivory, and a selected tint. */
+  --border: #e7dad5;
+  --line: #8f7a87;
+  --input: #8f7a87;
+  --tint: #f3e9ea;
+  --ring: var(--plum);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
+  html { scroll-padding-top: 5rem; }
   body {
-    background: var(--gradient-page);
-    background-attachment: fixed;
-    color: var(--color-foreground);
+    background: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
     min-height: 100vh;
   }
-  h1, h2, h3 { font-family: var(--font-display); }
+  h1, h2, h3 { color: var(--heading); line-height: 1.25; }
+  :focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
 }
 
-@utility card-soft {
+/* Separate cards: 12–16px radius, 20–24px padding on phones, 40px on desktop. */
+@utility card {
   background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  padding: 1.25rem;
+  @media (width >= 40rem) { padding: 1.75rem; }
+  @media (width >= 64rem) { padding: 2.5rem; }
 }
 
-@utility pill {
+/* Primary actions: solid plum, moderately rounded. */
+@utility btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 9999px;
-  padding: 0.7rem 1.3rem;
-  font-weight: 700;
-  transition: transform 0.15s, background 0.15s, opacity 0.15s;
-  &:active { transform: scale(0.97); }
+  min-height: 3rem;
+  border-radius: 14px;
+  padding: 0.7rem 1.5rem;
+  background: var(--plum);
+  color: var(--ivory);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+  &:hover { background: color-mix(in srgb, var(--plum) 85%, black); }
   &:disabled { opacity: 0.45; pointer-events: none; }
-  &:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+  &:focus-visible { outline: 2px solid var(--plum); outline-offset: 3px; }
 }
 
-@utility pill-primary {
-  background: var(--primary);
-  color: var(--peach-strong);
-  &:hover { background: color-mix(in oklab, var(--primary) 88%, black); }
+/* The one fully pill-shaped control: "Continue to reading" in the bottom action bar. */
+@utility btn-pill {
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
 }
 
-@utility pill-ghost {
-  background: var(--peach);
-  color: var(--primary);
-  border: 1.5px solid var(--peach-strong);
-  &:hover { background: var(--accent); }
+/* Small secondary action with an edge (e.g. "Set target"). */
+@utility btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--plum);
+  padding: 0.5rem 1rem;
+  color: var(--plum);
+  background: var(--ivory);
+  font-weight: 500;
+  white-space: nowrap;
+  &:hover { background: var(--tint); }
+  &:disabled { opacity: 0.45; pointer-events: none; }
+}
+
+/* Text-style actions: icon + single-line label, 8px apart. */
+@utility btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--plum);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+  &:hover { background: var(--tint); }
+  &:disabled { opacity: 0.45; pointer-events: none; }
+}
+
+/* Icon-only buttons (always with an aria-label). 40px target. */
+@utility btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  color: var(--plum);
+  &:hover { background: var(--tint); }
+  &:disabled { opacity: 0.35; pointer-events: none; }
+}
+
+/* Selectable tile / choice. Selected: thin plum border, subtle tint (checkmark is added in markup). */
+@utility tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--ivory);
+  padding: 1.25rem;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  &:hover { border-color: var(--plum); }
+  &[aria-pressed="true"] { border-color: var(--plum); background: var(--tint); }
 }
 
 @utility field {
   width: 100%;
-  background: var(--peach);
-  border: 1.5px solid var(--peach-strong);
-  border-radius: var(--radius-xl);
-  padding: 0.8rem 1rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
   color: var(--foreground);
-  &:focus { outline: 3px solid color-mix(in oklab, var(--ring) 40%, transparent); }
+  &:focus-visible { outline: 2px solid var(--plum); outline-offset: 1px; border-color: var(--plum); }
+}
+
+@utility text-link {
+  color: var(--plum);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  &:hover { text-decoration-thickness: 2px; }
 }
 
 @utility reading-text {
-  font-family: var(--font-sans);
-  font-size: 1.2rem;
-  line-height: 1.85;
-  letter-spacing: 0.01em;
-  max-width: 62ch;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  max-width: 65ch;
   white-space: pre-wrap;
 }
 
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--ember) 55%, transparent); }
-  100% { box-shadow: 0 0 0 14px transparent; }
+/* Newly revealed sections fade in gently; switched off for reduced-motion users. */
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
-@utility rec-pulse { animation: pulse-ring 1.4s ease-out infinite; }
+@utility reveal {
+  animation: reveal-in 0.25s ease-out both;
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--plum) 40%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+@utility rec-pulse {
+  animation: pulse-ring 1.4s ease-out infinite;
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+}
+
+/* Horizontal page gallery: hide the scrollbar chrome but keep touch, trackpad and keyboard scrolling. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
