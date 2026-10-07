@@ -12,7 +12,7 @@ It keeps Listify's plum, blush and peach palette and friendly voice. The visible
 ## How a session works
 There's no stepper — each part appears when it's needed (progressive disclosure), and contextual buttons move you on.
 
-1. **Welcome.** A fresh visit shows only the logo, "What are you reading today?" (in a soft serif; left-aligned on phones, centred on desktop), the reading-target card and a sample-session link.
+1. **Welcome.** A fresh visit shows only the logo, "What shall we read aloud together today?" (in a soft serif; left-aligned on phones, centred on desktop), the reading-target card and a sample-session link.
 2. **Today's reading target.** Choose 5, 10 or 15 min, or Custom. Nothing is preselected. Custom shows a labelled minutes field and a small "Set target" button; the next card only appears once a whole number from 1–180 is confirmed. Once set, the target becomes a plain "Today's target" row (no card of its own) with a directly editable minutes field; changing it keeps everything else.
 3. **Bring something to read.** Two tiles: "Paste text" (labelled text area) or "Upload pages" (photos or screenshots of pages). Neither input appears until you choose. Switching keeps both drafts.
    - Pages show in one horizontal strip of equal, fixed-height frames: two on desktop, one plus a peek of the next on phones. Images are contained, never stretched or cropped. Each page has a "⋯" menu (Move earlier, Move later, Replace…, Remove) that works with keyboard and screen readers; there is no drag-only reordering. Round gallery arrows only scroll: the right arrow shows until the end, the left arrow shows only at the end, and neither shows when everything fits. Touch, trackpad and keyboard scrolling always work.
@@ -57,10 +57,22 @@ Six clearly labelled SAMPLE examples, one at a time with tabs and Previous/Next:
 - **Header:** compact, sticky and opaque. The serif RB monogram and small book illustration form the home button; "Exit session" (or "Sample session · Exit sample") sits on the right. No navigation menu.
 - **Motion:** newly revealed sections fade in gently; this, the recording pulse and smooth gallery scrolling are switched off for people who prefer reduced motion.
 
+## Install and offline (PWA)
+Reading Buddy can be installed as an app on browsers that support it.
+- **Install:** an understated "Install Reading Buddy" link appears under the sample-session link on the welcome screens when the browser offers installation (Chrome, Edge, Android). On iPhone/iPad it opens a one-line tip: Safari → Share → Add to Home Screen. It's hidden once installed (standalone mode).
+- **Manifest and icons:** `public/manifest.webmanifest` (standalone display, `#FEEAEE` theme and background), icons in `public/icons/` drawn from the RB-and-book mark (192, 512, maskable 512, Apple 180, and an RB-only 32px favicon so it stays readable small).
+- **Offline:** `public/sw.js` caches the app shell (start page, built scripts and styles, fonts, icons). After one online visit the app opens and works offline, including recording and playback; if nothing is cached yet, `offline.html` explains. An in-app note appears while offline.
+- **Updates:** pages load network-first, so a fresh open gets the latest version. If a new service worker arrives while the app is open, "A new version of Reading Buddy is ready — Update now" is offered **only when no session is open**, so nothing reloads during a recording or discards work.
+- **Privacy is unchanged:** the service worker never stores passages, page photos or recordings (they're in-memory `blob:` URLs it never sees). Installing doesn't make sessions persist — closing the app clears them, and the wording says "app" instead of "tab" when installed.
+- The service worker only registers in production builds (not on the dev server).
+
 ## Not connected yet
 - Automatic text extraction from photos.
 - Live AI analysis of recordings.
 - No servers, paid services or AI providers are used. Passage text, photos and recordings stay in the current browser tab (the only outside request is the Google Fonts stylesheet).
+
+## AI feasibility lab (development only)
+`npm run lab` opens a separate test screen (http://localhost:5174) for checking whether free, on-device speech recognition (Whisper via Transformers.js) and OCR (Tesseract.js) could support Reading Buddy. It lives in `lab/`, has its own dev server and is never part of the production build. The public app and its sample feedback are unchanged and no AI is connected to them. See `lab/README.md` and `lab/RECORDING_SCRIPT.md`.
 
 ## Run it
 ```bash

@@ -237,3 +237,56 @@ Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
 - **Browsers:** Safari (desktop and iOS) and Firefox. The recorder uses AudioWorklet with a ScriptProcessor fallback, but neither was run there.
 - **Real phones:** iOS and Android, including the dock as browser toolbars collapse and expand, rotation, and the safe area.
 - **Assistive tech:** screen readers.
+
+## 2026-10-07 — welcome heading, PWA, AI feasibility lab (checked by Claude Code)
+
+**Environment:** MacBook Air M3 (Mac15,3, 8 cores, 16 GB), macOS 26.5.2; the Claude desktop app's built-in Chromium 152 pane (WebGPU present, cross-origin isolated in the lab). The pane was hidden from view for most runs, so browser timers were throttled. **No real phone, no Safari/Firefox, no real microphone and no recordings of a real reader were used.** The network was slow (curl from the terminal measured ~58 KB/s from Hugging Face), which dominates the first-download times below.
+
+### Welcome heading
+| What | Result |
+|---|---|
+| New heading | "What shall we read aloud together today?" in the soft serif; old subtitle removed; centred on desktop (screenshot); mobile left-alignment rule unchanged |
+
+### PWA (production build, run locally with a Node build of the same app)
+| What I tried | Expected | Actual | Notes |
+|---|---|---|---|
+| Load the production build | Service worker active and controlling; manifest + icons valid | SW `activated`, page controlled; manifest: name "Reading Buddy", `standalone`, start `/`, theme/background `#FEEAEE`; icons 192, 512 and maskable 512 load at the right sizes; apple-touch-icon and theme-color present | `vite preview` can't run this Cloudflare-target build, so I ran a local `NITRO_PRESET=node-server` build of the same app |
+| App-shell cache | Start page, scripts, styles and icons cached | Shell cache: 7 entries (`/`, offline page, manifest, icons); asset cache: the 3 built files | — |
+| Install action (Chromium) | Shown only after the browser's `beforeinstallprompt`; prompt on click; hidden after install | A stand-in `beforeinstallprompt` showed the underlined "Install Reading Buddy" link; clicking called `prompt()`; the link hid after accepting and after `appinstalled` | The real browser event never fires in this embedded pane, so it was simulated. Real Chrome/Android install not tested |
+| iPhone/iPad detection, standalone detection | Correct | Unit tests (jsdom): iPhone ✓, iPadOS reporting as a Mac ✓, desktop Mac not iOS ✓, standalone hides install ✓, install offered only after the event and hidden after install ✓ (5/5) | The iOS tip itself was not seen on a real iPhone |
+| Offline: server stopped, page reloaded | App opens from cache and works | With the server process killed (curl: connection refused), the app loaded, set a target, accepted text, recorded with a test tone and reached Review | — |
+| Offline: nothing cached | Offline page | After deleting the cached start page, navigating showed "You're offline … hasn't been saved on this device yet" | — |
+| Offline notice | Shown while offline | `offline` event → "You're offline. Reading Buddy still works in this tab."; hidden again on `online` | Events dispatched in the page |
+| Update during a session | Not offered while a session is open; offered after Exit; applies on click | New service worker waiting → offer shown with no session; **hidden while a session was open** (text kept); shown again after Exit session; "Update now" activated the new worker (old caches removed) | The new release was simulated by rebuilding with a changed `VERSION`, then reverted |
+
+### AI feasibility lab — Whisper via Transformers.js 4.3.1 (CPU/WASM, 8-bit, 4 threads)
+**All speech below is SYNTHETIC (macOS "Samantha" voice).** It checks the pipeline only and says nothing about real voices, accents or natural reading difficulties.
+
+| What | whisper-tiny.en_timestamped |
+|---|---|
+| Model files | 43.5 MB (encoder 10.1, decoder 30.7, tokenizer/configs 2.7) + ONNX Runtime WASM 26.9 MB stored + library 0.59 MB |
+| First load (slow network) | 531.6 s |
+| Load from browser cache | 4.8 s |
+| Transcription time | 3.2–4.0 s for 30–36 s of audio (real-time factor 0.09–0.12); 0.7 s for the 15.8 s noise clip |
+| Cancel during transcription | Stopped; model unloaded; the page stayed usable |
+| Cancel during download (base.en) | Stopped; only fully downloaded small config files remained cached; no partial model files |
+| Download failure (missing model id) | Clear error shown ("…couldn't be downloaded…"); Load could be retried |
+| UI responsiveness | Inference runs in a worker. The stall meter read ~950 ms, but timers are clamped to 1 s in hidden tabs, so **this measurement is not meaningful here** |
+| WebGPU | Not run: it needs a different ~120 MB download on this connection. The CPU path was the one tested |
+
+| Case (synthetic) | tiny.en result |
+|---|---|
+| 1 Normal | 3 recognition errors on names/words ("Okafore", "Will O'Lain" for "Willow Lane", "said" for "set"). "postbox"/"neighbors" were initially false differences; fixed by spelling/compound equivalence |
+| 2 Repetitions | **All three repetitions kept** ("a small brass" ×2, "said said", "nobody ever" ×2) and labelled as possible repetitions. Synthetic repeats are cleanly spoken; natural disfluencies may be dropped — **needs real recordings** |
+| 3 Omit/add/substitute | All 4 intended changes found (low omitted, very added, community→village, three→two), plus recognition errors (Okafur, Will O'Lain, said/set, others→other) |
+| 4 Pause | Pause measured from audio: **1.98 s** (actual 2.0 s). But word timestamps placed it between "warm" and "light" instead of "of" and "light", and the model misheard "it made" as "had made" after the pause — **word timestamps near pauses are imprecise** |
+| 5 Pace | Faster section visible: 5 s windows of 300–324 wpm vs a median of about 192 (flagged) |
+| 6 Silence/noise | **No invented words** in 5 s of silence plus 6 s of noise; noise caused "grass" for "brass". (Its 103 omissions are expected: the case reads only the first sentence) |
+
+### OCR — Tesseract.js 7.0.0 (experimental)
+| What | Result | Notes |
+|---|---|---|
+| Synthetic "page photo" (passage typeset on warm paper, 1.5° tilt, uneven lighting, blur, grain; 284 KB JPEG) | Text extracted **exactly**, 95% mean confidence, 0 low-confidence words, 53.0 s including the first download | Synthetic and clean; real phone photos of curved pages will be harder. **Untested on real photos** |
+| Downloads | Engine `tesseract-core-simd-lstm.wasm.js` 3.9 MB + English data 5.2 MB (best_int, cached in IndexedDB) | PDFs are not handled; they would need PDF.js to render or read each page first |
+
+**Not verified / pending your recordings:** speech-recognition quality on your voice and accent; natural repetitions, restarts and hesitations; real pauses and pace changes; real background noise; phones (performance and memory); Safari and Firefox (WASM threads, AudioWorklet); WebGPU; OCR on real page photos.

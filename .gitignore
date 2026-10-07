@@ -35,3 +35,6 @@ dist-ssr
 *.m4a
 *.wav
 .env*
+
+# AI lab: locally generated synthetic test audio (pipeline checks only)
+lab/synthetic-audio/

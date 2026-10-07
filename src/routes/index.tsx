@@ -11,6 +11,7 @@ import { SampleSession, type SampleStage } from "@/components/reading/SampleSess
 import { SessionDialog } from "@/components/reading/SessionDialog";
 import { TargetCard } from "@/components/reading/TargetCard";
 import { formatTime, useRecorder } from "@/components/reading/useRecorder";
+import { usePwa } from "@/lib/pwa";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +42,9 @@ function Index() {
   const [text, setText] = useState("");
   const [images, setImages] = useState<PageImage[]>([]);
   const rec = useRecorder(() => setView("review"));
+  const pwa = usePwa();
+  // Installed or not, the session lives in memory only — wording follows where it's running.
+  const place = pwa.standalone ? "app" : "tab";
 
   // Bumped when the session is discarded, so uploads still decoding can't bring discarded pages back.
   const sessionGen = useRef(0);
@@ -210,10 +214,9 @@ function Index() {
 
   const welcome = (
     <header className="text-left sm:text-center">
-      <h1 id="welcome-h" tabIndex={-1} className="welcome-serif text-[1.875rem] text-heading outline-none sm:text-[2.375rem]">
-        What are you reading today?
+      <h1 id="welcome-h" tabIndex={-1} className="welcome-serif text-[1.875rem] leading-tight text-heading outline-none sm:text-[2.375rem]">
+        What shall we read aloud together today?
       </h1>
-      <p className="mt-2 text-muted-foreground">Make a little time to read aloud. I'll keep you company.</p>
     </header>
   );
 
@@ -261,6 +264,21 @@ function Index() {
               : undefined
         }
       >
+        {!pwa.online && (
+          <p role="status" className="rounded-2xl border border-border bg-card px-4 py-2 text-sm">
+            You're offline. Reading Buddy still works in this {place}.
+          </p>
+        )}
+        {/* A new version is only offered when nothing would be lost by reloading. */}
+        {pwa.updateReady && !sample && !hasSession && (view === "prepare" || view === "home") && (
+          <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2 text-sm">
+            A new version of Reading Buddy is ready.
+            <button className="text-link" onClick={pwa.applyUpdate}>
+              Update now
+            </button>
+          </p>
+        )}
+
         {sample ? (
           <SampleSession stage={sample} setStage={setSample} onStartMine={() => setSample(null)} />
         ) : (
@@ -273,7 +291,9 @@ function Index() {
                     Your session is waiting
                   </h2>
                   {summary.length > 0 && <p className="mt-1 text-muted-foreground">{summary.join(" · ")}</p>}
-                  <p className="mt-1 text-sm text-muted-foreground">Closing or reloading this tab clears it.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {pwa.standalone ? "Closing the app clears it." : "Closing or reloading this tab clears it."}
+                  </p>
                   <button className="btn-primary mt-6 w-full sm:w-auto" onClick={() => setView(resumeTo)}>
                     Resume session <ArrowRight className="size-[18px]" aria-hidden />
                   </button>
@@ -383,8 +403,26 @@ function Index() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           <Lock className="mr-1.5 -mt-0.5 inline size-4" aria-hidden />
-          Your passage, pages and recordings stay in this browser tab and are never uploaded.
+          {pwa.standalone
+            ? "Your passage, pages and recordings stay in this app only while it's open, and are never uploaded."
+            : "Your passage, pages and recordings stay in this browser tab and are never uploaded."}
         </p>
+
+        {/* Understated install option on the welcome screens only; hidden once installed. */}
+        {!sample && (view === "prepare" || view === "home") && !pwa.standalone && (pwa.canInstall || pwa.ios) && (
+          <div className="-mt-2 text-center text-sm text-muted-foreground">
+            {pwa.canInstall ? (
+              <button className="text-link" onClick={() => void pwa.install()}>
+                Install Reading Buddy
+              </button>
+            ) : (
+              <details className="inline-block text-left">
+                <summary className="text-link cursor-pointer list-none text-center">Install Reading Buddy</summary>
+                <p className="mt-2 max-w-xs">In Safari, tap Share, then “Add to Home Screen”. Sessions still clear when the app is closed.</p>
+              </details>
+            )}
+          </div>
+        )}
       </main>
 
 
@@ -404,8 +442,8 @@ function Index() {
           </p>
         ) : (
           <p>
-            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep it. Your recording and session will stay available in this
-            tab.
+            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep it. Your recording and session will stay available in this{" "}
+            {place}.
           </p>
         )}
       </SessionDialog>
