@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Eye, Search, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Eye, Search } from "lucide-react";
 import { SAMPLE_EXAMPLES, SAMPLE_PASSAGE, STATUS_LABEL, type SampleStatus } from "@/lib/sample-feedback";
 
 const STATUS_STYLE: Record<SampleStatus, { Icon: typeof Eye; cls: string }> = {
@@ -10,14 +10,12 @@ const STATUS_STYLE: Record<SampleStatus, { Icon: typeof Eye; cls: string }> = {
 };
 
 type Props = {
-  /** Shown when samples are opened from a real review; omitted inside the sample session. */
-  onClose?: () => void;
   /** Sample session only: the passage is already on screen, so the toggle is hidden. */
   hidePassage?: boolean;
 };
 
 /** One labelled SAMPLE example at a time. Never presented as analysis of the visitor's audio. */
-export function SampleFeedback({ onClose, hidePassage }: Props) {
+export function SampleFeedback({ hidePassage }: Props) {
   const [i, setI] = useState(0);
   const ex = SAMPLE_EXAMPLES[i] ?? SAMPLE_EXAMPLES[0]!;
   const total = SAMPLE_EXAMPLES.length;
@@ -25,16 +23,9 @@ export function SampleFeedback({ onClose, hidePassage }: Props) {
 
   return (
     <section className="card reveal" aria-labelledby="sample-h">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="rounded-md bg-peach px-2.5 py-1 text-xs font-semibold tracking-wider text-foreground uppercase">
-          Sample feedback
-        </span>
-        {onClose && (
-          <button className="btn-quiet -mr-3" onClick={onClose}>
-            <X className="size-4" aria-hidden /> Close samples
-          </button>
-        )}
-      </div>
+      <span className="rounded-md bg-peach px-2.5 py-1 text-xs font-semibold tracking-wider text-foreground uppercase">
+        Sample feedback
+      </span>
       <h2 id="sample-h" className="mt-4 text-xl font-medium">What feedback could look like</h2>
       <p className="mt-1 text-muted-foreground">
         Made-up examples on a sample passage. This is not an analysis of your recording 💛

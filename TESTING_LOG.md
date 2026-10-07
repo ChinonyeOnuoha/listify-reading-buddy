@@ -201,3 +201,39 @@ Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
 - **Microphone:** a real permission prompt, and the mic indicator turning off after "Stop and go home" or Exit.
 - **Real input:** the real file pickers.
 - **Assistive tech:** a screen reader announcing the dialogs.
+
+## 2026-10-07 — pause/resume recording, mobile dock, sample-feedback screen, colours (checked by Claude Code)
+
+**What kind of checks these are:**
+- **Browser:** the Claude desktop app's built-in Chromium pane at emulated sizes (375×812, 320×568, 812×375 landscape, 1280×800). **No real phones, no Safari or Firefox, no real microphone, and no audible listening.**
+- **"Test tone":** a Web Audio oscillator fed in place of the microphone; its pitch was changed between segments so the recording can be checked by analysing the WAV.
+- **Pane visibility:** the pane was sometimes hidden from view, which slows animations; screenshots were used only where they rendered.
+
+| Area | What I tried | Expected | Actual | Notes |
+|---|---|---|---|---|
+| Contrast (calculated) | All text and control colours on page `#FEEAEE`, card `#FEECE4`, tint, frames and peach | Text ≥4.5:1; borders and focus ≥3:1 | Headings 10.7–12.9; main text 6.6–8.0; supporting `#735668` 4.66 (peach) to 5.6; plum and focus 9.2–11.1; button text on plum 11.1; field and tile edges 3.1–3.5 | `#795C6E` failed on peach (4.26), so it was replaced |
+| Test tone, 375 | Start (440 Hz) → pause (tone switched to 1320 Hz during the pause) → Listen so far → resume (880 Hz) → pause (1760 Hz) → resume (660 Hz) → pause → **finish while paused** | All segments in order; no pause audio, silence or duplicates; timer excludes pauses | WAV (RIFF/WAVE, 16 kHz, mono, 16-bit) decodes as 7.43 s: **440 Hz 2.95 s → 880 Hz 2.00 s → 660 Hz 2.45 s**, 0 silent windows, no 1320/1760 Hz; durations match the recorded segments; timer froze at 0:02 through a 2.5 s pause; Review shows 0:07 | 50 ms analysis windows |
+| Same | Listen so far after each pause; then **finish straight from recording** | Each preview contains everything recorded so far | Preview 1: 440 Hz 1.55 s. Preview 2: 440 Hz 1.55 s → 880 Hz 0.95 s. Final: 440 → 880 → 660 Hz, 0 silent windows, 3.76 s | A first run started with the tone left at 1320 Hz by me, so it was re-run with the tone set correctly |
+| Same | Preview playing, then Resume | Preview stops before capture | `audio.paused` true at resume; "Stop listening" also stops it | The preview never reaches the captured stream (separate paths) |
+| Same | Finish (recording or paused) | Mic released | Test-tone tracks `ended` after finishing | Real mic indicator not observed |
+| Forced failures | Preview `play()` rejected; WAV build throws once while finishing; then finish again | Audio kept; useful message; retry works | "…couldn't be played here. It's still safe…"; "…couldn't be finished just now. Your audio so far is safe — try Finish recording again." stayed paused with the mic live; retry → 1.48 s recording, mic ended | First run showed the older preview message; fixed so the finish message wins |
+| Dock layout | Long passage at 375×812, 320×568, 812×375; idle / recording / paused | Dock pinned; nothing covered; no overflow | Dock pinned at every scroll position; 375: dock 157 px, reading space 590 px; 320: no button overflow (140 px buttons, icons hidden under 360 px); landscape: one-row dock 63 px, header 49 px, reading space 263 px; at the end of the page the content and footer end above the dock everywhere | Browser chrome changing simulated only by resizing the viewport |
+| Page navigation | 2 pages at 375 | One-line counter; 44 px arrows; correct first/last states | "Page 1 of 2" on one line, `nowrap`, 73 px gaps; Previous/Next are 44×44 with names "Previous page" / "Next page"; disabled correctly on pages 1 and 2; not covered by the dock | — |
+| Home while recording or paused (test tone) | Logo → dialog → cancel; paused → logo → cancel; Finish and go home → Resume | Explains finish-and-keep; cancelling preserves the state | Wording as implemented ("…will finish your [paused] recording and keep it…"); recording continued and paused stayed paused at the same time; Finish and go home → "recording 0:02" kept, mic ended; Resume → Review | — |
+| Exit while paused or recording | Cancel, then confirm | Cancel preserves; confirm discards and releases the mic | Paused: "You have a paused recording — leaving will discard it."; cancel kept it paused. Recording: confirm → fresh welcome, no Resume, mic ended; a fresh session afterwards recorded normally | — |
+| Review alignment | 375 vs 1280 | Left on phones, centred on desktop | 375: heading and subtitle left at 16 px, same as the card; 1280: centred | — |
+| Sample-feedback screen | Explore → browser Back; Explore → Back to recording; playback position 1.7 s and 0.9 s | Separate screen; focus on its heading; Back keeps everything; position kept, no autoplay | Heading "Sample feedback" focused; "Close samples" gone; SAMPLE label, "not an analysis of your recording", passage toggle, one example at a time, all 6 categories; Back → Review focused, position 1.70 s and 0.90 s restored, paused; passage still "Page 1 of 2" | First version lost the position: React's development double-mount saved 0. Fixed by tracking the position continuously |
+| Desktop 1280 | Read panel through each state | Panel shows the same states; dock hidden | Recorded: Listen back / Record again / Upload audio; recording: Finish / Pause; paused: Resume / Listen so far / Finish; dock `display: none` | — |
+| Keyboard | Tab into the dock (real key presses) | Reachable; visible focus | Dock buttons reachable; 2 px plum outline (`:focus-visible`), 11:1 against the dock | Not a full screen-reader audit |
+| Console (clean load) | Full flow start → pause → resume → finish → samples → back | No errors | No errors | Errors seen earlier came only from a mid-edit hot reload |
+
+Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
+
+**Not verified — please check on real devices:**
+- **Recording and playback:**
+  - a real microphone, including the permission prompt and the mic indicator turning off
+  - actually listening to "Listen so far" and the final recording
+  - long recordings: memory use is about 2 MB per minute
+- **Browsers:** Safari (desktop and iOS) and Firefox. The recorder uses AudioWorklet with a ScriptProcessor fallback, but neither was run there.
+- **Real phones:** iOS and Android, including the dock as browser toolbars collapse and expand, rotation, and the safe area.
+- **Assistive tech:** screen readers.

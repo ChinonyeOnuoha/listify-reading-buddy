@@ -20,15 +20,26 @@ export function PassageView({ text, images }: Props) {
         <img src={img.url} alt={`Page ${current + 1} of ${total}`} className="h-full w-full object-contain" />
       </div>
       {total > 1 && (
-        <nav aria-label="Pages" className="mt-3 flex items-center justify-between gap-2">
-          <button className="btn-quiet -ml-3" disabled={current === 0} onClick={() => setPage(current - 1)}>
-            <ChevronLeft className="size-4" aria-hidden /> Previous page
+        <nav aria-label="Pages" className="mt-3 flex items-center justify-between gap-4">
+          {/* Narrow screens: compact 44px arrow buttons; wider screens show the words too. */}
+          <button
+            className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-ml-3 sm:px-3"
+            disabled={current === 0}
+            onClick={() => setPage(current - 1)}
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="size-5 sm:size-4" aria-hidden /> <span className="hidden sm:inline">Previous page</span>
           </button>
-          <span className="text-sm text-muted-foreground" aria-live="polite">
+          <span className="text-sm whitespace-nowrap text-muted-foreground" aria-live="polite">
             Page {current + 1} of {total}
           </span>
-          <button className="btn-quiet -mr-3" disabled={current === total - 1} onClick={() => setPage(current + 1)}>
-            Next page <ChevronRight className="size-4" aria-hidden />
+          <button
+            className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-mr-3 sm:px-3"
+            disabled={current === total - 1}
+            onClick={() => setPage(current + 1)}
+            aria-label="Next page"
+          >
+            <span className="hidden sm:inline">Next page</span> <ChevronRight className="size-5 sm:size-4" aria-hidden />
           </button>
         </nav>
       )}

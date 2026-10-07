@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { ArrowLeft, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, RotateCcw, Trash2 } from "lucide-react";
 import { ConfirmInline } from "./ConfirmInline";
-import { SampleFeedback } from "./SampleFeedback";
 import { formatTime, type AudioTake } from "./useRecorder";
 
 type Props = {
@@ -10,16 +9,31 @@ type Props = {
   onBack: () => void;
   onDiscard: () => void;
   onNewSession: () => void;
+  onExploreSamples: () => void;
+  /** Playback position to restore (e.g. after visiting sample feedback). Never autoplays. */
+  startAt: number;
+  /** Reports the playback position as it changes (play, pause, seek), so it survives leaving this screen. */
+  onPosition: (position: number) => void;
 };
 
-export function ReviewStep({ take, target, onBack, onDiscard, onNewSession }: Props) {
+export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onExploreSamples, startAt, onPosition }: Props) {
   const [confirm, setConfirm] = useState<null | "discard" | "new">(null);
-  const [showSample, setShowSample] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Pause when leaving. (The position is reported continuously below, not read here: a remount-time read would
+  // capture 0 before the restored position is applied.)
+  useEffect(() => {
+    const a = audioRef.current;
+    return () => a?.pause();
+  }, []);
 
   return (
     <>
-      <header className="text-center">
-        <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">Reading done 🙌🏾 Have a listen back.</h1>
+      {/* Phones: left-aligned with the content edge. Desktop: centred, as before. */}
+      <header className="text-left sm:text-center">
+        <h1 id="review-h" tabIndex={-1} className="text-[1.75rem] font-semibold outline-none sm:text-[2.125rem]">
+          Reading done 🙌🏾 Have a listen back.
+        </h1>
         <p className="mt-2 text-muted-foreground">AI feedback isn't connected yet.</p>
       </header>
 
@@ -39,7 +53,20 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession }: Pr
               </p>
             </div>
             {take.source === "upload" && take.name && <p className="text-sm text-muted-foreground">{take.name}</p>}
-            <audio controls src={take.url} className="mt-4 w-full" aria-label="Play back your reading" />
+            <audio
+              ref={audioRef}
+              controls
+              preload="metadata"
+              src={take.url}
+              className="mt-4 w-full"
+              aria-label="Play back your reading"
+              onLoadedMetadata={(e) => {
+                if (startAt > 0 && startAt < (e.currentTarget.duration || Infinity)) e.currentTarget.currentTime = startAt;
+              }}
+              onTimeUpdate={(e) => onPosition(e.currentTarget.currentTime)}
+              onSeeked={(e) => onPosition(e.currentTarget.currentTime)}
+              onPause={(e) => onPosition(e.currentTarget.currentTime)}
+            />
           </>
         ) : (
           <p id="rec-h" className="mt-4 text-muted-foreground">
@@ -76,17 +103,15 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession }: Pr
         )}
       </section>
 
-      {showSample ? (
-        <SampleFeedback onClose={() => setShowSample(false)} />
-      ) : (
-        <section className="card" aria-labelledby="explore-h">
-          <h2 id="explore-h" className="text-xl font-medium">Curious what feedback could look like?</h2>
-          <p className="mt-1 text-muted-foreground">These are made-up examples, kept separate from your reading.</p>
-          <button className="btn-secondary mt-5" onClick={() => setShowSample(true)}>
-            <Sparkles className="size-4" aria-hidden /> Explore sample feedback
-          </button>
-        </section>
-      )}
+      <section className="card" aria-labelledby="explore-h">
+        <h2 id="explore-h" className="text-xl font-medium">
+          Curious what feedback could look like?
+        </h2>
+        <p className="mt-1 text-muted-foreground">Made-up examples on a sample passage, separate from your reading.</p>
+        <button className="btn-secondary mt-5" onClick={onExploreSamples}>
+          Explore sample feedback <ArrowRight className="size-4" aria-hidden />
+        </button>
+      </section>
     </>
   );
 }

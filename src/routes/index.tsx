@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Lock, LogOut } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, LogOut } from "lucide-react";
 import { BookMark } from "@/components/reading/BookMark";
 import { ContinueBar } from "@/components/reading/ContinueBar";
 import { PrepareStep, type InputMode, type PageImage } from "@/components/reading/PrepareStep";
 import { ReadStep } from "@/components/reading/ReadStep";
 import { ReviewStep } from "@/components/reading/ReviewStep";
+import { SampleFeedback } from "@/components/reading/SampleFeedback";
 import { SampleSession, type SampleStage } from "@/components/reading/SampleSession";
 import { SessionDialog } from "@/components/reading/SessionDialog";
 import { TargetCard } from "@/components/reading/TargetCard";
@@ -25,8 +26,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-/** "home" is the welcome screen shown while a session exists (with Resume session). */
-type View = "home" | "prepare" | "read" | "review";
+/** "home" is the welcome screen shown while a session exists (with Resume session); "samples" is sample feedback. */
+type View = "home" | "prepare" | "read" | "review" | "samples";
 type Place = Exclude<View, "home">;
 
 const pauseAllAudio = () => document.querySelectorAll("audio").forEach((a) => a.pause());
@@ -45,7 +46,33 @@ function Index() {
   const sessionGen = useRef(0);
   const isCurrentSession = useCallback((g: number) => g === sessionGen.current, []);
 
-  const hasSession = target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.recording;
+  const hasSession = target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.unfinished;
+
+  // Review playback position, kept while visiting sample feedback (reset for a new recording).
+  const [reviewPos, setReviewPos] = useState(0);
+  useEffect(() => setReviewPos(0), [rec.take?.url]);
+
+  // Sample feedback is its own screen with a browser-history entry, so Back returns to Review with nothing lost.
+  const openSamples = () => {
+    window.history.pushState({ rb: "samples" }, "");
+    setView("samples");
+  };
+  const leaveSamples = () => {
+    if ((window.history.state as { rb?: string } | null)?.rb === "samples") window.history.back();
+    else setView("review");
+  };
+  useEffect(() => {
+    const onPop = () => setView((v) => (v === "samples" ? "review" : v));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // Focus the new screen's heading when moving between Review and sample feedback.
+  const prevView = useRef<View>(view);
+  useEffect(() => {
+    if (view === "samples") document.getElementById("samples-h")?.focus();
+    if (view === "review" && prevView.current === "samples") document.getElementById("review-h")?.focus();
+    prevView.current = view;
+  }, [view]);
 
   // Sample walkthrough: separate state; exiting it never touches the personal session.
   const [sample, setSample] = useState<SampleStage | null>(null);
@@ -82,6 +109,8 @@ function Index() {
 
   // Space the fixed Continue bar needs at the bottom of the page.
   const [barSpace, setBarSpace] = useState(0);
+  // Space the phone recording dock needs at the bottom of the reading screen.
+  const [dockSpace, setDockSpace] = useState(0);
   const showBar = view === "prepare" && !sample && canContinue;
 
   // Each view and sample stage starts at the top; the sticky header stays put.
@@ -113,7 +142,7 @@ function Index() {
       setView(hasSession ? "home" : "prepare");
       return;
     }
-    if (rec.recording) return setHomeDialog("confirm");
+    if (rec.unfinished) return setHomeDialog("confirm");
     goHome();
   };
   const stopAndGoHome = async () => {
@@ -123,7 +152,7 @@ function Index() {
       return;
     }
     setStopping(true);
-    const kept = await rec.stopQuietly(); // stops recording and releases the mic
+    const kept = await rec.finishQuietly(); // finishes (recording or paused), keeps the audio, releases the mic
     setStopping(false);
     if (!kept) return setHomeDialog("failed"); // explain before navigating away
     setHomeDialog(null);
@@ -192,7 +221,8 @@ function Index() {
     <>
       {/* Compact, opaque, sticky header: the logo goes home; Exit session / Exit sample sit on the right. */}
       <header className="sticky top-0 z-20 border-b border-border bg-background">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
+        {/* Slimmer on short screens (landscape phones) so the reading area isn't squeezed between header and dock. */}
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8 [@media(max-height:480px)]:h-12">
           <button ref={logoRef} onClick={onLogo} className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1 text-primary hover:bg-tint" aria-label="Reading Buddy home">
             {/* Compact serif monogram: the B tucks slightly under the R, both stay readable. */}
             <span className="font-logo flex items-baseline text-[1.75rem] leading-none" aria-hidden>
@@ -223,7 +253,13 @@ function Index() {
           (sample ? sample === "read" : view === "read") ? "max-w-6xl" : "max-w-3xl"
         }`}
         // Reserve room for the fixed Continue bar so it never covers previews, editing controls or helper text.
-        style={showBar && barSpace ? { paddingBottom: barSpace + 24 } : undefined}
+        style={
+          showBar && barSpace
+            ? { paddingBottom: barSpace + 24 }
+            : view === "read" && !sample && dockSpace
+              ? { paddingBottom: dockSpace + 16 }
+              : undefined
+        }
       >
         {sample ? (
           <SampleSession stage={sample} setStage={setSample} onStartMine={() => setSample(null)} />
@@ -296,15 +332,20 @@ function Index() {
                 text={text}
                 images={images}
                 target={target}
-                recording={rec.recording}
+                recState={rec.state}
                 micError={rec.micError}
-                elapsed={rec.recording ? rec.elapsed : 0}
+                problem={rec.problem}
+                elapsed={rec.elapsed}
                 takeDuration={rec.take ? rec.take.duration : null}
-                onStart={rec.start}
-                onStop={rec.stop}
+                onStart={() => void rec.start()}
+                onPause={rec.pause}
+                onResume={rec.resume}
+                onPreview={rec.previewSoFar}
+                onFinish={rec.finish}
                 onUpload={rec.upload}
                 onBack={() => setView("prepare")}
                 onReview={() => setView("review")}
+                onReserve={setDockSpace}
               />
             )}
 
@@ -318,7 +359,24 @@ function Index() {
                   setView("read");
                 }}
                 onNewSession={newSession}
+                onExploreSamples={openSamples}
+                startAt={reviewPos}
+                onPosition={setReviewPos}
               />
+            )}
+
+            {view === "samples" && (
+              <>
+                <div>
+                  <button className="btn-quiet -ml-3" onClick={leaveSamples}>
+                    <ArrowLeft className="size-4" aria-hidden /> Back to recording
+                  </button>
+                  <h1 id="samples-h" tabIndex={-1} className="mt-3 text-left text-[1.75rem] font-semibold outline-none sm:text-center sm:text-[2.125rem]">
+                    Sample feedback
+                  </h1>
+                </div>
+                <SampleFeedback />
+              </>
             )}
           </>
         )}
@@ -334,16 +392,21 @@ function Index() {
         open={homeDialog !== null}
         onOpenChange={(o) => !o && setHomeDialog(null)}
         title={homeDialog === "failed" ? "The recording couldn't be kept" : "Return home?"}
-        cancelLabel={homeDialog === "failed" ? "Stay here" : "Keep recording"}
-        confirmLabel={homeDialog === "failed" ? "Go home anyway" : "Stop and go home"}
+        cancelLabel={homeDialog === "failed" ? "Stay here" : rec.state === "paused" ? "Stay here" : "Keep recording"}
+        confirmLabel={homeDialog === "failed" ? "Go home anyway" : "Finish and go home"}
         onConfirm={() => void stopAndGoHome()}
         busy={stopping}
         returnFocus={logoRef}
       >
         {homeDialog === "failed" ? (
-          <p>Recording has stopped and the microphone is off, but no audio was captured, so there's nothing to keep. Your target and content are still here.</p>
+          <p>
+            {rec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and content are still here.
+          </p>
         ) : (
-          <p>Your recording will stop. Your recording and session will stay available in this tab.</p>
+          <p>
+            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep it. Your recording and session will stay available in this
+            tab.
+          </p>
         )}
       </SessionDialog>
 
@@ -357,7 +420,11 @@ function Index() {
         returnFocus={exitRef}
       >
         <p>Your reading target, added content and any recording will be cleared. This can't be undone.</p>
-        {rec.recording && <p className="font-medium text-foreground">You're recording right now — leaving will stop and discard it.</p>}
+        {rec.unfinished && (
+          <p className="font-medium text-foreground">
+            {rec.state === "paused" ? "You have a paused recording — leaving will discard it." : "You're recording right now — leaving will stop and discard it."}
+          </p>
+        )}
       </SessionDialog>
     </>
   );

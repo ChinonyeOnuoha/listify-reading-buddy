@@ -44,10 +44,10 @@
   --plum: #65083e; /* logo, primary buttons, selected borders, links */
   --heading-plum: #491332; /* headings */
   --text-plum: #653b54; /* main text and labels */
-  --support-plum: #795c6e; /* supporting text (never on peach: 4.3:1) */
+  --support-plum: #735668; /* supporting text: ≥4.6:1 on every surface, incl. peach */
   --peach: #f5d5c3; /* restrained secondary accents */
-  --ivory: #faf7f2; /* card surfaces */
-  --blush: #f6eae9; /* page background */
+  --ivory: #feece4; /* card surfaces */
+  --blush: #feeaee; /* page background */
 
   --background: var(--blush);
   --heading: var(--heading-plum);
@@ -58,7 +58,7 @@
   --primary-foreground: var(--ivory);
   --secondary: var(--blush);
   --secondary-foreground: var(--text-plum);
-  --muted: #f1e8e3;
+  --muted: #f8e3dd;
   --muted-foreground: var(--support-plum);
   --accent: var(--peach);
   --accent-foreground: var(--text-plum);
@@ -68,7 +68,7 @@
   --border: #e7dad5;
   --line: #8f7a87;
   --input: #8f7a87;
-  --tint: #f3e9ea;
+  --tint: #f5deda;
   --ring: var(--plum);
 }
 
