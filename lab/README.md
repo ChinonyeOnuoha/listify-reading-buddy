@@ -22,10 +22,10 @@ Recording script: `RECORDING_SCRIPT.md` (also shown in the lab). Synthetic pipel
 | Transformers.js 4.3.1 (`dist/transformers.min.js`, 0.59 MB) | cdn.jsdelivr.net | Apache-2.0 | Loaded at runtime in a module worker (the `.web` build needs a bundler, so the self-contained build is used). No `package.json` dependency added. |
 | ONNX Runtime Web (`ort-wasm-simd-threaded.asyncify.wasm`, 26.9 MB stored) | cdn.jsdelivr.net, fetched by Transformers.js | MIT | CPU engine. Multi-threaded when the page is cross-origin isolated (the lab server sends COOP/COEP `credentialless`). |
 | `onnx-community/whisper-tiny.en_timestamped` | huggingface.co | base model `openai/whisper-tiny.en` is Apache-2.0 on Hugging Face (Whisper code is MIT); the ONNX conversion repo states no separate licence | 8-bit: encoder 10.1 MB + decoder 30.7 MB + tokenizer/config 2.7 MB = **43.5 MB** |
-| `onnx-community/whisper-base.en_timestamped` | huggingface.co | as above (`openai/whisper-base.en`, Apache-2.0) | 8-bit: **≈79.6 MB** reported by the loader |
+| `onnx-community/whisper-base.en_timestamped` | huggingface.co | as above (`openai/whisper-base.en`, Apache-2.0) | 8-bit: encoder 23.2 MB + decoder 53.7 MB + tokenizer/config 2.7 MB = **79.6 MB** |
 | Tesseract.js 7.0.0 + core + English data | cdn.jsdelivr.net | Apache-2.0 | OCR experiment only |
 
-Everything is cached by the browser (Cache API, `transformers-cache`) after the first download. Recordings and passages are never uploaded; inference runs in the browser. **Delete downloaded models** removes the cache.
+Everything is cached by the browser (Cache API, `transformers-cache`) after the first download. Interrupted downloads are not resumed — a dropped connection restarts the large files (seen in testing). Recordings and passages are never uploaded; inference runs in the browser. **Delete downloaded models** removes the cache.
 
 ## Safeguards built in
 - The passage is never passed to the model (no prompt, no "initial text"), so it can't nudge the transcript towards the expected words.

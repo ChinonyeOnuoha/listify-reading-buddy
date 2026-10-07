@@ -272,7 +272,7 @@ Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
 | Cancel during download (base.en) | Stopped; only fully downloaded small config files remained cached; no partial model files |
 | Download failure (missing model id) | Clear error shown ("…couldn't be downloaded…"); Load could be retried |
 | UI responsiveness | Inference runs in a worker. The stall meter read ~950 ms, but timers are clamped to 1 s in hidden tabs, so **this measurement is not meaningful here** |
-| WebGPU | Not run: it needs a different ~120 MB download on this connection. The CPU path was the one tested |
+| WebGPU | Not run: it needs a different, larger download (fp32 encoder + q4 decoder), which wasn't practical on this connection. The CPU path was the one tested |
 
 | Case (synthetic) | tiny.en result |
 |---|---|
@@ -282,6 +282,22 @@ Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
 | 4 Pause | Pause measured from audio: **1.98 s** (actual 2.0 s). But word timestamps placed it between "warm" and "light" instead of "of" and "light", and the model misheard "it made" as "had made" after the pause — **word timestamps near pauses are imprecise** |
 | 5 Pace | Faster section visible: 5 s windows of 300–324 wpm vs a median of about 192 (flagged) |
 | 6 Silence/noise | **No invented words** in 5 s of silence plus 6 s of noise; noise caused "grass" for "brass". (Its 103 omissions are expected: the case reads only the first sentence) |
+
+### whisper-base.en_timestamped (same setup, SYNTHETIC speech)
+| What | Result |
+|---|---|
+| Model files | 79.6 MB (encoder 23.2, decoder 53.7, tokenizer/configs 2.7) + the same ONNX Runtime (already cached) |
+| Downloading | **Three attempts were interrupted** before success: one by my own git branch switch (the lab server reloaded), two by real network errors on a flaky connection. The lab showed "network error — check the internet connection…" and stopped cleanly each time. Partly downloaded files are not kept, so every retry starts the large files again. The fourth attempt loaded in 16.1 s once the connection reached ~1 MB/s |
+| Transcription time | 4.8–5.5 s for 30–36 s of audio (real-time factor 0.13–0.18; about 1.5× slower than tiny.en); 1.1 s for the noise clip |
+
+| Case (synthetic) | base.en result (vs tiny.en) |
+|---|---|
+| 1 Normal | 2 recognition errors ("Okafur", "said" for "set"); got "Willow Lane" right (tiny: 3–4 errors) |
+| 2 Repetitions | **All three repetitions kept** and labelled (as with tiny); 1 recognition error |
+| 3 Omit/add/substitute | All 4 intended changes found; recognition errors "Okafur", "said"/"set" and "Then" for "One"; "Stonewall" correctly treated as "stone wall" |
+| 4 Pause | 1.98 s measured from audio; **placed between "circle" and "light"** (actual: after "of"), so word timestamps near the pause are still imprecise. The transcript also lost its sentence punctuation in this case |
+| 5 Pace | Faster section flagged (312 wpm windows vs a median of ~190); recognition error "wore" for "swore" |
+| 6 Silence/noise | **No invented words** in the silence or noise; "O'Kacore" and "grass" for "brass" under noise |
 
 ### OCR — Tesseract.js 7.0.0 (experimental)
 | What | Result | Notes |
