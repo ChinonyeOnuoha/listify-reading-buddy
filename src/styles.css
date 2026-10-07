@@ -8,6 +8,7 @@
   --font-display: "Manrope", system-ui, sans-serif;
   --font-sans: "Manrope", system-ui, sans-serif;
   --font-logo: "DM Serif Display", Georgia, serif;
+  --font-welcome: "Fraunces", Georgia, serif;
   --color-heading: var(--heading);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -192,6 +193,14 @@
   padding: 0.7rem 0.9rem;
   color: var(--foreground);
   &:focus-visible { outline: 2px solid var(--plum); outline-offset: 1px; border-color: var(--plum); }
+}
+
+/* Soft, bookish serif — only for the welcome heading. */
+@utility welcome-serif {
+  font-family: var(--font-welcome);
+  font-weight: 500;
+  font-variation-settings: "SOFT" 100, "opsz" 72;
+  letter-spacing: -0.01em;
 }
 
 @utility text-link {

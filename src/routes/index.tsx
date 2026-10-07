@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Lock, LogOut } from "lucide-react";
 import { BookMark } from "@/components/reading/BookMark";
 import { ContinueBar } from "@/components/reading/ContinueBar";
@@ -7,8 +7,9 @@ import { PrepareStep, type InputMode, type PageImage } from "@/components/readin
 import { ReadStep } from "@/components/reading/ReadStep";
 import { ReviewStep } from "@/components/reading/ReviewStep";
 import { SampleSession, type SampleStage } from "@/components/reading/SampleSession";
+import { SessionDialog } from "@/components/reading/SessionDialog";
 import { TargetCard } from "@/components/reading/TargetCard";
-import { useRecorder } from "@/components/reading/useRecorder";
+import { formatTime, useRecorder } from "@/components/reading/useRecorder";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,18 +25,29 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type View = "prepare" | "read" | "review";
+/** "home" is the welcome screen shown while a session exists (with Resume session). */
+type View = "home" | "prepare" | "read" | "review";
+type Place = Exclude<View, "home">;
+
+const pauseAllAudio = () => document.querySelectorAll("audio").forEach((a) => a.pause());
 
 function Index() {
-  // The visitor's own session. The sample session below never reads or writes any of this.
+  // The visitor's own session, kept in this tab's memory only. The sample session never reads or writes any of it.
   const [view, setView] = useState<View>("prepare");
+  const [resumeTo, setResumeTo] = useState<Place>("prepare");
   const [target, setTarget] = useState<number | null>(null);
   const [mode, setMode] = useState<InputMode>(null);
   const [text, setText] = useState("");
   const [images, setImages] = useState<PageImage[]>([]);
   const rec = useRecorder(() => setView("review"));
 
-  // Sample walkthrough: separate state; exiting returns to the preserved setup.
+  // Bumped when the session is discarded, so uploads still decoding can't bring discarded pages back.
+  const sessionGen = useRef(0);
+  const isCurrentSession = useCallback((g: number) => g === sessionGen.current, []);
+
+  const hasSession = target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.recording;
+
+  // Sample walkthrough: separate state; exiting it never touches the personal session.
   const [sample, setSample] = useState<SampleStage | null>(null);
 
   // Usable content only: non-whitespace text, or at least one successfully loaded page.
@@ -84,6 +96,72 @@ function Index() {
     hadTarget.current = target !== null;
   }, [target]);
 
+  // ---- Logo: go home without clearing anything -------------------------------------------------------------
+  const logoRef = useRef<HTMLButtonElement>(null);
+  const [homeDialog, setHomeDialog] = useState<null | "confirm" | "failed">(null);
+  const [stopping, setStopping] = useState(false);
+
+  const goHome = () => {
+    pauseAllAudio();
+    if (view !== "home") setResumeTo(view);
+    setView(hasSession ? "home" : "prepare");
+  };
+  const onLogo = () => {
+    if (sample) {
+      setSample(null); // leave the sample; the personal session is untouched
+      if (view !== "home") setResumeTo(view);
+      setView(hasSession ? "home" : "prepare");
+      return;
+    }
+    if (rec.recording) return setHomeDialog("confirm");
+    goHome();
+  };
+  const stopAndGoHome = async () => {
+    if (homeDialog === "failed") {
+      setHomeDialog(null);
+      goHome();
+      return;
+    }
+    setStopping(true);
+    const kept = await rec.stopQuietly(); // stops recording and releases the mic
+    setStopping(false);
+    if (!kept) return setHomeDialog("failed"); // explain before navigating away
+    setHomeDialog(null);
+    pauseAllAudio();
+    setResumeTo("review"); // Resume opens the finished recording — it never restarts recording
+    setView("home");
+  };
+
+  // ---- Exit session: the one explicit way to discard ---------------------------------------------------------
+  const exitRef = useRef<HTMLButtonElement>(null);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [focusWelcome, setFocusWelcome] = useState(false);
+
+  const discardSession = () => {
+    sessionGen.current += 1;
+    rec.discard(); // stops recording without keeping it, releases the mic, revokes audio
+    pauseAllAudio();
+    images.forEach((i) => URL.revokeObjectURL(i.url));
+    setImages([]);
+    setText("");
+    setMode(null);
+    setTarget(null);
+    setPasteDone(false);
+    setChanging(false);
+    setResumeTo("prepare");
+    setHomeDialog(null);
+    hadTarget.current = false;
+    setView("prepare");
+    setExitOpen(false);
+    setFocusWelcome(true); // the Exit button is gone, so focus the fresh welcome heading
+  };
+  useEffect(() => {
+    if (!focusWelcome) return;
+    document.getElementById("welcome-h")?.focus();
+    setFocusWelcome(false);
+  }, [focusWelcome]);
+
+  // Review's "Start a new session" keeps the target (as before) and clears content and audio.
   const newSession = () => {
     rec.clear();
     images.forEach((i) => URL.revokeObjectURL(i.url));
@@ -94,27 +172,48 @@ function Index() {
     setView("prepare");
   };
 
+  const summary = [
+    target !== null && `${target} min target`,
+    images.length > 0 && `${images.length} ${images.length === 1 ? "page" : "pages"}`,
+    !!text.trim() && "pasted text",
+    rec.take && `recording ${formatTime(rec.take.duration)}`,
+  ].filter(Boolean);
+
+  const welcome = (
+    <header className="text-left sm:text-center">
+      <h1 id="welcome-h" tabIndex={-1} className="welcome-serif text-[1.875rem] text-heading outline-none sm:text-[2.375rem]">
+        What are you reading today?
+      </h1>
+      <p className="mt-2 text-muted-foreground">Make a little time to read aloud. I'll keep you company.</p>
+    </header>
+  );
+
   return (
     <>
-      {/* Compact, opaque, sticky logo header. */}
+      {/* Compact, opaque, sticky header: the logo goes home; Exit session / Exit sample sit on the right. */}
       <header className="sticky top-0 z-20 border-b border-border bg-background">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
-          <div className="flex items-center gap-2 text-primary">
+          <button ref={logoRef} onClick={onLogo} className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1 text-primary hover:bg-tint" aria-label="Reading Buddy home">
             {/* Compact serif monogram: the B tucks slightly under the R, both stay readable. */}
             <span className="font-logo flex items-baseline text-[1.75rem] leading-none" aria-hidden>
               <span>R</span>
               <span className="-ml-[0.14em]">B</span>
             </span>
             <BookMark className="h-6 w-8" />
-            <span className="sr-only">Reading Buddy</span>
-          </div>
-          {sample && (
+          </button>
+          {sample ? (
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="rounded-md bg-peach px-2.5 py-1 text-sm font-medium">Sample session</span>
               <button className="btn-quiet -mr-3" onClick={() => setSample(null)}>
                 <LogOut className="size-4" aria-hidden /> Exit sample
               </button>
             </div>
+          ) : (
+            hasSession && (
+              <button ref={exitRef} className="btn-quiet -mr-3 text-sm font-normal text-muted-foreground hover:text-primary" onClick={() => setExitOpen(true)}>
+                <LogOut className="size-4" aria-hidden /> Exit session
+              </button>
+            )
           )}
         </div>
       </header>
@@ -130,20 +229,27 @@ function Index() {
           <SampleSession stage={sample} setStage={setSample} onStartMine={() => setSample(null)} />
         ) : (
           <>
+            {view === "home" && (
+              <>
+                {welcome}
+                <section className="card reveal" aria-labelledby="resume-h">
+                  <h2 id="resume-h" className="text-xl font-medium">
+                    Your session is waiting
+                  </h2>
+                  {summary.length > 0 && <p className="mt-1 text-muted-foreground">{summary.join(" · ")}</p>}
+                  <p className="mt-1 text-sm text-muted-foreground">Closing or reloading this tab clears it.</p>
+                  <button className="btn-primary mt-6 w-full sm:w-auto" onClick={() => setView(resumeTo)}>
+                    Resume session <ArrowRight className="size-[18px]" aria-hidden />
+                  </button>
+                </section>
+              </>
+            )}
+
             {view === "prepare" && (
               <>
-                {contentReady ? (
-                  <header className="text-center">
-                    <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">Your reading is ready</h1>
-                  </header>
-                ) : (
-                  <header className="text-center">
-                    <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">What are you reading today?</h1>
-                    <p className="mt-2 text-muted-foreground">Make a little time to read aloud. I'll keep you company.</p>
-                  </header>
-                )}
+                {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
 
-                <TargetCard target={target} onSet={setTarget} compact={contentReady} />
+                <TargetCard target={target} onSet={setTarget} />
 
                 {target !== null && (
                   <PrepareStep
@@ -165,16 +271,23 @@ function Index() {
                     }}
                     onPasteCommit={commitPaste}
                     onPagesAdded={() => setChanging(false)}
+                    generation={sessionGen.current}
+                    isCurrentSession={isCurrentSession}
                   />
                 )}
 
-                <p className="mt-2 text-center text-muted-foreground">
-                  Just exploring?{" "}
-                  <button className="text-link inline-flex items-center gap-1" onClick={() => setSample("read")}>
-                    Try a sample session <ArrowRight className="size-4" aria-hidden />
-                  </button>
-                </p>
+                {/* Fixed to the bottom normally; while a phone keyboard is open it sits here, right under the content. */}
+                {showBar && <ContinueBar onContinue={() => setView("read")} onReserve={setBarSpace} />}
               </>
+            )}
+
+            {(view === "prepare" || view === "home") && (
+              <p className="mt-2 text-center text-muted-foreground">
+                Just exploring?{" "}
+                <button className="text-link inline-flex items-center gap-1" onClick={() => setSample("read")}>
+                  Try a sample session <ArrowRight className="size-4" aria-hidden />
+                </button>
+              </p>
             )}
 
             {view === "read" && mode && target !== null && (
@@ -216,13 +329,36 @@ function Index() {
         </p>
       </main>
 
-      {showBar && (
-        <ContinueBar
-          status={mode === "upload" ? `${images.length} ${images.length === 1 ? "page" : "pages"} ready` : "Passage ready"}
-          onContinue={() => setView("read")}
-          onReserve={setBarSpace}
-        />
-      )}
+
+      <SessionDialog
+        open={homeDialog !== null}
+        onOpenChange={(o) => !o && setHomeDialog(null)}
+        title={homeDialog === "failed" ? "The recording couldn't be kept" : "Return home?"}
+        cancelLabel={homeDialog === "failed" ? "Stay here" : "Keep recording"}
+        confirmLabel={homeDialog === "failed" ? "Go home anyway" : "Stop and go home"}
+        onConfirm={() => void stopAndGoHome()}
+        busy={stopping}
+        returnFocus={logoRef}
+      >
+        {homeDialog === "failed" ? (
+          <p>Recording has stopped and the microphone is off, but no audio was captured, so there's nothing to keep. Your target and content are still here.</p>
+        ) : (
+          <p>Your recording will stop. Your recording and session will stay available in this tab.</p>
+        )}
+      </SessionDialog>
+
+      <SessionDialog
+        open={exitOpen}
+        onOpenChange={setExitOpen}
+        title="Leave this session?"
+        cancelLabel="Stay in session"
+        confirmLabel="Leave and discard"
+        onConfirm={discardSession}
+        returnFocus={exitRef}
+      >
+        <p>Your reading target, added content and any recording will be cleared. This can't be undone.</p>
+        {rec.recording && <p className="font-medium text-foreground">You're recording right now — leaving will stop and discard it.</p>}
+      </SessionDialog>
     </>
   );
 }

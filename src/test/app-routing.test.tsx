@@ -1,9 +1,18 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
+import { Route as RootRoute } from "@/routes/__root";
+
+// The real root renders a whole <html><head><body> document (TanStack Start's shellComponent). React can't
+// mount a document inside the test's <div> container, so nothing painted and both tests always failed.
+// Swap only the document shell for a passthrough; the real root component, routes and not-found page still render.
+// (`update` accepts shellComponent at runtime, but its type doesn't list it — hence the narrow cast.)
+const Passthrough = ({ children }: { children: ReactNode }) => <>{children}</>;
+RootRoute.update({ shellComponent: Passthrough } as unknown as Parameters<typeof RootRoute.update>[0]);
 
 function renderAt(path: string) {
   const queryClient = new QueryClient();

@@ -14,11 +14,9 @@ type Props = {
   target: number | null;
   /** Called only with a confirmed, valid target. */
   onSet: (minutes: number) => void;
-  /** Content is ready: a narrow, centred "Today's target" row. */
-  compact?: boolean;
 };
 
-export function TargetCard({ target, onSet, compact }: Props) {
+export function TargetCard({ target, onSet }: Props) {
   const [custom, setCustom] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -29,17 +27,11 @@ export function TargetCard({ target, onSet, compact }: Props) {
 
   if (target !== null) {
     return (
-      <section
-        className={
-          compact
-            ? "mx-auto w-full max-w-md rounded-[20px] border border-border bg-card px-5 py-3 sm:px-7"
-            : "card reveal"
-        }
-        aria-label="Today's reading target"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <label htmlFor="target-minutes" className={compact ? "font-medium" : "text-xl font-medium"}>
-            {compact ? "Today's target" : "Today's reading target"}
+      // Once set, the target is a quiet editable row — no card of its own.
+      <section className="reveal" aria-label="Today's reading target">
+        <div className="flex flex-wrap items-center justify-start gap-x-4 gap-y-2 sm:justify-center">
+          <label htmlFor="target-minutes" className="font-medium">
+            Today's target
           </label>
           <span className="flex items-center gap-2">
             <input

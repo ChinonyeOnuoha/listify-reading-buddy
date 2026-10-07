@@ -166,3 +166,38 @@ Automated: `tsc --noEmit` passes. `vite build` succeeds. `vitest`: the same 2 ro
 - **Phones:** real iOS and Android on-screen keyboards with the bar, the bottom safe area on a notched iPhone, and touch swiping in the gallery.
 - **Real input:** the real file picker for Replace and Add pages, real clipboard paste, a real microphone and listening to playback.
 - **Assistive tech:** screen readers.
+
+## 2026-10-07 — home/resume, Exit session, copy trims, routing tests (checked by Claude Code)
+
+Run in the Claude desktop app's built-in Chromium browser against the local dev server, at an emulated 375×812 phone and 1280×800 desktop. **No real-device checks this round.** "Simulated mic" means a 440 Hz tone stream standing in for `getUserMedia`. The browser pane was sometimes hidden from view, which pauses animations; I noted where that affected a check.
+
+| Device / browser | What I tried | Expected result | Actual observation | Limitations / notes |
+|---|---|---|---|---|
+| Phone 375 | Welcome alignment and font | Heading and subtitle left-aligned with the content edge; soft serif | Both `text-align: left` at x=16px, same as the card edge; Fraunces loaded with `"SOFT" 100`, weight 500 | — |
+| Desktop 1280 | Welcome alignment | Still centred | Heading and subtitle centred (38px); resume card text left-aligned | — |
+| Phone | Copy trims | Short tiles; removed lines gone | Tiles "Paste text" / "Upload pages" without descriptions; "Choose how…" gone; "Your reading is ready", "N pages added", "Pasted text", "3 pages ready", "Passage ready" all absent; heading "Your pages" with "2 pages" beside it; bar contains only "Continue to reading" | — |
+| Phone | Target row after setting | No enclosing card | Row is not inside a `.card` | — |
+| Phone | Logo → home → Resume from setup | Resume shown; target kept | "10 min target"; Resume returned to the content card, target 10 | — |
+| Phone | From content entry (2 pages + an unfinished paste draft) | Nothing lost | Summary "10 min target · 2 pages · pasted text"; Resume → "Your pages", 2 pages; paste draft kept; Change content / Cancel still work | — |
+| Phone, **simulated mic** | Logo while recording | Dialog with exact wording; recording continues | "Return home?", the specified message, "Keep recording" / "Stop and go home"; focus on Keep recording; no close icon; still recording, mic track live | — |
+| Same | Tab ×2, then Escape (real key presses) | Focus trapped; Escape cancels | Tab moved Keep recording → Stop and go home → Keep recording; Escape closed it; still recording; focus back on the logo | Close animation slowed in the hidden pane |
+| Same | Stop and go home → Resume | Audio kept; mic released; review, not re-recording | Home summary "recording 0:29"; mic track `ended`; Resume → Review; audio decodes 29.46 s; no new mic request | — |
+| Same | Logo from Review | Home without a dialog; playback paused | No dialog; `audio.paused` true | Playback barely ran in the hidden pane, so the pause check is weak |
+| Same, stand-in recorder capturing no data | Stop and go home | Explain before leaving | "The recording couldn't be kept" with an explanation; stayed on Read; mic ended; earlier recording still kept; "Go home anyway" went home | Recorder failure simulated |
+| Phone | Exit from the welcome screen → Stay in session | Exact wording; safe focus; nothing cleared; focus returns | Wording as specified; focus on "Stay in session"; summary unchanged; focus returned to "Exit session" | Focus return needed about 1 s for the close animation in the hidden pane |
+| Same, **simulated mic** | Exit while recording → cancel → confirm | Extra line; cancel keeps recording; confirm clears all | Extra "You're recording right now — leaving will stop and discard it."; cancel kept recording (mic live); confirm → fresh welcome, target choices back, no Resume, no Exit, mic ended, focus on the welcome heading, old file links revoked | — |
+| Same | Discard while a large page was still decoding | Page not restored | After a new target, Upload showed 0 pages | — |
+| Same | Discard while the mic request was pending (1.2 s fake delay) | No recording; late stream released | Not recording; late stream tracks `ended`; no Resume | — |
+| Same, **simulated mic** | Fresh session after discard | Works normally | Target → paste → record → Review with audio | — |
+| Same | Sample from home; logo inside the sample; Exit sample | Personal session preserved; Exit session hidden in the sample | Header showed only "Sample session · Exit sample"; logo and Exit sample both returned to the welcome with Resume and the full summary; Resume → Review with audio | — |
+| Phone, **simulated keyboard** (layout viewport 320px taller than the visible area) | Continue with the text box focused | Field not covered; Continue reachable | First version: the button was 182px below the field, after the sample link and footer. **Moved** it to right after the content card: now 44px below the field, full width, no overlap. Keyboard closed → fixed bar again; at the bottom of the page the privacy line ends above the bar | Real iOS/Android keyboards **not** tested |
+| Unit tests | `vitest` | Pass and actually render the app | 2/2 pass; the welcome heading and "404" render inside the tests | Cause of the earlier failures: see README → Testing |
+| Console | Errors | None from the app | One "file not found", matching my own deliberate fetch of a revoked recording link | — |
+
+Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
+
+**Not verified (please check):**
+- **Phones:** real iOS and Android, including the keyboard with the Continue button and the bottom safe area.
+- **Microphone:** a real permission prompt, and the mic indicator turning off after "Stop and go home" or Exit.
+- **Real input:** the real file pickers.
+- **Assistive tech:** a screen reader announcing the dialogs.

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 type Props = {
-  status: string;
   onContinue: () => void;
   /** Height the page must reserve so the fixed bar never covers content (0 when the bar is in the flow). */
   onReserve: (px: number) => void;
@@ -39,7 +38,7 @@ function useKeyboardOpen() {
  * While a phone keyboard is open it drops into the page flow instead, so it never sits on top of the field being typed in;
  * it stays reachable by scrolling and returns to the bottom when the keyboard closes.
  */
-export function ContinueBar({ status, onContinue, onReserve }: Props) {
+export function ContinueBar({ onContinue, onReserve }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const keyboardOpen = useKeyboardOpen();
 
@@ -61,12 +60,15 @@ export function ContinueBar({ status, onContinue, onReserve }: Props) {
       ref={ref}
       role="region"
       aria-label="Next step"
-      className={`${keyboardOpen ? "relative" : "fixed inset-x-0 bottom-0"} z-30 border-t border-border bg-card`}
+      className={keyboardOpen ? "" : "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background"}
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-4">
-        <p className="text-center text-sm text-muted-foreground sm:text-left sm:text-base sm:text-foreground" role="status" aria-live="polite">
-          {status}
-        </p>
+      <div
+        className={
+          keyboardOpen
+            ? "flex"
+            : "mx-auto flex max-w-3xl justify-end px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4"
+        }
+      >
         <button className="btn-primary btn-pill w-full sm:w-auto sm:min-w-72" onClick={onContinue}>
           Continue to reading <ArrowRight className="size-[18px]" aria-hidden />
         </button>

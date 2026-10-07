@@ -22,6 +22,9 @@ type Props = {
   onPasteCommit: () => void;
   /** Pages were successfully added. */
   onPagesAdded: () => void;
+  /** Session generation when this card rendered; uploads that finish after a discard are dropped. */
+  generation: number;
+  isCurrentSession: (g: number) => boolean;
 };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -68,9 +71,12 @@ export function PrepareStep(p: Props) {
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const list = Array.from(files);
+    const gen = p.generation;
     const loaded = await Promise.all(list.map(loadPage));
-    setFailed(list.filter((_, i) => !loaded[i]).map((f) => f.name));
     const ok = loaded.filter((x): x is PageImage => !!x);
+    // The session was discarded while these were decoding: don't bring anything back.
+    if (!p.isCurrentSession(gen)) return ok.forEach((x) => URL.revokeObjectURL(x.url));
+    setFailed(list.filter((_, i) => !loaded[i]).map((f) => f.name));
     if (!ok.length) return;
     p.setImages((prev) => [...prev, ...ok]);
     p.onPagesAdded();
@@ -94,7 +100,9 @@ export function PrepareStep(p: Props) {
   };
   const replace = async (id: string, f?: File) => {
     if (!f) return;
+    const gen = p.generation;
     const page = await loadPage(f);
+    if (!p.isCurrentSession(gen)) return page && URL.revokeObjectURL(page.url);
     if (!page) return setFailed([f.name]);
     setFailed([]);
     const old = p.images.find((x) => x.id === id);
@@ -109,13 +117,10 @@ export function PrepareStep(p: Props) {
     if (p.text.trim()) p.onPasteCommit();
   };
 
-  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string, helper: string) => (
-    <button type="button" aria-pressed={p.mode === m} onClick={() => p.onSelectMode(m)} className="tile relative">
-      <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-      <span className="min-w-0 pr-6">
-        <span className="block font-medium">{label}</span>
-        <span className="block text-sm text-muted-foreground">{helper}</span>
-      </span>
+  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string) => (
+    <button type="button" aria-pressed={p.mode === m} onClick={() => p.onSelectMode(m)} className="tile relative items-center">
+      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
+      <span className="min-w-0 pr-6 font-medium">{label}</span>
       {p.mode === m && (
         <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="size-3" strokeWidth={3} aria-hidden />
@@ -157,16 +162,14 @@ export function PrepareStep(p: Props) {
   return (
     <section ref={cardRef} id="content-card" className="card" aria-labelledby="content-h">
       <div className="flex items-start justify-between gap-x-4 gap-y-1">
-        <div>
-          <h2 id="content-h" tabIndex={-1} className="text-xl font-medium outline-none">
-            {title}
-          </h2>
-          {p.collapsed && (
-            <p className="text-sm text-muted-foreground">
-              {p.mode === "upload" ? `${p.images.length} ${p.images.length === 1 ? "page" : "pages"} added` : "Pasted text"}
-            </p>
+        <h2 id="content-h" tabIndex={-1} className="text-xl font-medium outline-none">
+          {title}
+          {p.collapsed && p.mode === "upload" && (
+            <span className="ml-2 text-base font-normal text-muted-foreground">
+              {p.images.length} {p.images.length === 1 ? "page" : "pages"}
+            </span>
           )}
-        </div>
+        </h2>
         {p.collapsed && (
           <button className="text-link mt-1 text-sm whitespace-nowrap" onClick={p.onChangeContent}>
             Change content
@@ -181,12 +184,9 @@ export function PrepareStep(p: Props) {
 
       {!p.collapsed && (
         <div className="reveal" data-input-choices>
-          <p className="mt-1 text-muted-foreground">
-            {p.changing ? "Pick a method — your text and pages are both kept." : "Choose how you'd like to add your passage."}
-          </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-5" role="group" aria-label="How to add your passage">
-            {choice("paste", ClipboardPaste, "Paste your content", "Use text you've copied")}
-            {choice("upload", Upload, "Upload your content", "Add photos or screenshots")}
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5" role="group" aria-label="How to add your passage">
+            {choice("paste", ClipboardPaste, "Paste text")}
+            {choice("upload", Upload, "Upload pages")}
           </div>
         </div>
       )}

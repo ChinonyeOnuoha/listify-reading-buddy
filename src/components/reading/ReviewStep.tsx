@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Lock, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { ConfirmInline } from "./ConfirmInline";
 import { SampleFeedback } from "./SampleFeedback";
 import { formatTime, type AudioTake } from "./useRecorder";
@@ -40,9 +40,6 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession }: Pr
             </div>
             {take.source === "upload" && take.name && <p className="text-sm text-muted-foreground">{take.name}</p>}
             <audio controls src={take.url} className="mt-4 w-full" aria-label="Play back your reading" />
-            <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Lock className="size-4" aria-hidden /> Stays in this browser tab only
-            </p>
           </>
         ) : (
           <p id="rec-h" className="mt-4 text-muted-foreground">
