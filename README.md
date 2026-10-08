@@ -30,7 +30,7 @@ npm test           # unit tests
 ```
 A production build is `npm run build`; to run one locally use `NITRO_PRESET=node-server npm run build` then `node .output/server/index.mjs`.
 
-A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`, http://localhost:5174). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show.
+A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`; the terminal shows the local address). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show.
 
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it
