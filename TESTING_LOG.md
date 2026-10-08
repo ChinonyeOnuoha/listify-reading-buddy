@@ -306,3 +306,199 @@ Automated: `tsc --noEmit` passes; `vite build` succeeds; `vitest` 2/2 pass.
 | Downloads | Engine `tesseract-core-simd-lstm.wasm.js` 3.9 MB + English data 5.2 MB (best_int, cached in IndexedDB) | PDFs are not handled; they would need PDF.js to render or read each page first |
 
 **Not verified / pending your recordings:** speech-recognition quality on your voice and accent; natural repetitions, restarts and hesitations; real pauses and pace changes; real background noise; phones (performance and memory); Safari and Firefox (WASM threads, AudioWorklet); WebGPU; OCR on real page photos.
+
+## 2026-10-07 (later) — review fixes: lab model state, Clear, service-worker versioning (checked by Claude Code)
+
+**Environment:** MacBook Air M3, macOS 26.5.2; Claude desktop app's built-in Chromium 152 (visible for most of these runs). Microphone input was a 440 Hz test tone; speech in the lab was the **synthetic macOS "Samantha" voice** (pipeline checks only). No real phone, Safari, Firefox or real voice.
+
+### 1. Selected vs loaded model (lab)
+| Check | Result |
+|---|---|
+| Load tiny.en, transcribe, then change the model dropdown to base.en | Transcribe **disabled**, reason shown ("The selected model isn't loaded (loaded: …tiny.en on wasm). Press Load model."), "Loaded now" still says tiny.en with a warning, Load enabled; the earlier result stays labelled with tiny.en. Choosing tiny.en again re-enables Transcribe and disables Load |
+| Device-only change, failed switch, switch while busy, result provenance, exported summary | Covered by unit tests (below). The worker now forgets the old model *before* loading the new one, so a failed switch can't leave a disposed model marked loaded |
+| Result identity | Each result carries model, device, dtype, threads, timestamp mode, case, file name/length and synthetic flag; the summary reads these, never the dropdowns |
+
+### 2. Clear / cancel (lab)
+| Check | Result |
+|---|---|
+| Clear during a real transcription | Audio, result and player gone; status "Test data cleared and transcription stopped. The model was unloaded…"; "Loaded now: nothing"; Transcribe disabled, Load enabled. **9 s later (longer than the transcription needs) nothing had reappeared** and the status was unchanged |
+| Recovery | Load model again (0.8 s from cache) → add recording → Transcribe works |
+| Clear when idle | "Test data cleared. The model stays loaded." |
+| Not-audio file | Clear error ("Couldn't read “…” as audio…"); page stayed usable |
+| Real AAC `.m4a` (what Voice Memos / phones produce) | Read, transcribed in 3.1 s, labelled with file name and length |
+| Unit tests (fake worker, late replies delivered on purpose) | Clear mid-transcription + late reply ignored; Clear during load keeps load status; Clear while a file is still being decoded; two files finishing out of order; recording can't be swapped mid-transcription; Transcribe refused while a file is being read; new file clears the old result; Cancel + late/wrong-job reply; terminated worker stays dead; worker crash unloads model; status/controls agree |
+
+### 3. Service worker versioning and updates
+| Check | Result |
+|---|---|
+| Build stamping (real builds) | Same code → same id (`09c3c39ae4d2` twice). Real app text change → new id and new hashed file names. Public-file change (manifest) → new id. Restoring the files → the original id. (A first attempt that added a trailing space inside JSX text produced identical output and an identical id — correct, not a fault.) Placeholders: none left; precache list = the 3 built files |
+| Update never interrupts a session (real browser, real builds A→B→C, local server) | **With B waiting:** banner shown with no session; **gone as soon as a session started**; page, typed text and waiting state untouched; nothing reloaded. **Exit session → banner returns → "Update now"** applied it: B active, A's caches deleted, **`reading-buddy-fonts` and an unrelated `transformers-cache` (with its entry) untouched**. **Strictest case:** with a **recording in progress on B** (test-tone mic live) a new release C was deployed and the tab re-checked: C installed and waited, **no banner, same page, still recording, mic live**, B's caches intact. Exit session (dialog warned about the recording) → mic ended → banner returned |
+| Unit tests (run the real template stamped like a build) | Cleanup deletes only stale Reading Buddy caches (incl. legacy `rb-v1-…`) and keeps foreign ones, including look-alikes `rbac-session-cache` and `rb-notes`; offline fallback ignores foreign caches; install never calls `skipWaiting`; only a `SKIP_WAITING` message does; a running version's caches survive a new install; per-release cache names; a failed install caches nothing and doesn't take over; precache = exact built files; offline start page; blob:, other origins and non-GET untouched. Stamping: order-independent, changes with built names / public contents / template, refuses a template without placeholders. Update policy: offered only on welcome screens with no session |
+
+### Mutation checks (put each bug back, confirm tests fail)
+Lab: Transcribe ignoring the selection → 2 tests fail; accepting stale replies → 1; Clear leaving the transcription running → 1; Clear overwriting load status → 1. Service worker: delete-everything cleanup → 1; install calling `skipWaiting` → 2; fixed version string → 11; offline fallback searching all caches → 1; update offered during a session → 1. All restored; everything passes.
+
+### Counts and gaps
+- Automated: app 29 tests (was 7), lab 26 (was 7), all pass; both `tsc` projects clean; no real lint errors (only the repo's existing formatting complaints in older files); production builds (Cloudflare and Node targets) succeed; production output contains no lab or AI code.
+- **Build id is stable across targets:** the Cloudflare build, the Node build and a repeat Cloudflare build of the same files all produced `3e0454bacc60`. (Ids seen earlier in these runs differed only because files had changed in between, e.g. reformatting the worker template, which is part of the hash.)
+- **Not verified:** a real deployment on Lovable/Cloudflare serving the stamped `sw.js` (only local builds and a local Node server were run; the plugin ran under both build targets); real phones and other browsers.
+
+## 2026-10-08 — first REAL-voice test: tiny.en on the owner's own recording (normal reading)
+
+**What was tested:** the owner's own reading of the 118-word test passage (iPhone-style `.m4a`, 50.9 s, one take, read cold), uploaded in the owner's Chrome to the lab at localhost:5174. Model whisper-tiny.en (q8) on CPU/WASM, 4 threads, cross-origin isolated, word timestamps. The reader's accent was not characterised. **One recording, one reader, one model, one device** — this is one data point, not a measurement of the model in general.
+
+| Measure | Result |
+|---|---|
+| Load (first download in the owner's browser) | 69.2 s; UI max stall 4 ms |
+| Transcription | 4.0 s for 50.9 s of audio (real-time factor 0.08); UI max stall 2 ms; no errors |
+| Differences vs the passage | 32 substituted, 4 omitted, 2 added, 0 repetition flags → **word error rate ≈ 32%** ((32+4+2)/118); ≈ 31% of the passage's words affected |
+| Owner's listening check | Reported that **all** of the differences were recognition errors, not things they read differently. (The per-row dropdowns were not filled in on the page, so the exported summary shows `Your verdicts: {}`; this is the owner's statement, not recorded in the tool) |
+| Word timestamps | Passed the structural checks (116 words, none missing/zero-length/out of order/over 2.5 s). That only shows the numbers are well-formed, not that they're accurate |
+| Pauses | 14 pauses ≥ 0.3 s found from the audio (longest 1.06 s at a sentence end). The words they were attached to look **shifted by about one word** (e.g. a pause that starts at 17.00 s is attached to "community", whose neighbour "garden" is stamped 17.1 s) — the same pattern seen with synthetic speech |
+| Pace | Median 144 wpm (a normal reading speed). One window flagged (25–30 s, 96 wpm) falls in the worst-recognised stretch: **pace is computed from the recognised words, so recognition errors corrupt it** |
+
+**Examples of what the model produced** (passage → transcript): "brass lantern" → "brush on some"; "Willow Lane" → "the lane"; "gate" → "beach"; "swore it burned until morning" → "floor's born on so many"; "mattered" → "Watchmassad"; "slowed down to say good night" → "flew down the sacred nights"; "neighbours" → "nibbles". Several stretches read as fluent English ("Children like to guess how long the fleeing would last") while being wrong — fluent-looking output is not evidence it is right.
+
+**What this does and doesn't show**
+- The same model, same code and same passage gave 2–3 differences on clean **synthetic** US speech. So the lab pipeline is not the problem; the gap appears with a real recording.
+- It does **not** establish *why*. Plausible contributors: accent (speech recognisers are known to be less accurate on some accents, and tiny models are the least robust), the phone microphone and room, 16 kHz downsampling, and the model being the smallest available. This one recording can't separate them. Not yet tried: base.en or larger models on the same file; a recording from another microphone.
+- Product consequence: with this model, comparing a transcript to the passage would have flagged about a third of a correct reading as "differences". That is incompatible with the rule that accent must never be treated as an error. **tiny.en is not suitable for word-level feedback on this reader.**
+- Repetition preservation could not be assessed (no repeated words in this reading).
+
+**Pending:** base.en on the same file (79.6 MB); whether larger models help (small.en ≈ 251 MB download); other test cases (repetitions, omissions, pause, pace, noise) with the owner's voice.
+
+### 2026-10-08 — same recording, whisper-base.en (real voice, second model)
+
+Same file (`Normal reading.m4a`, 50.9 s) in the owner's Chrome, base.en (q8) on CPU/WASM, 4 threads, word timestamps. Numbers read from the owner's screenshots of the results (the "Copy result summary" text was not pasted this time).
+
+| Measure | tiny.en | base.en |
+|---|---|---|
+| Download (first load in the owner's browser) | 69.2 s | 131.9 s |
+| Transcription | 4.0 s (RTF 0.08) | 6.3 s (RTF 0.12) |
+| UI max stall | 2 ms | 2 ms (36 ms while loading) |
+| Substituted / omitted / added | 32 / 4 / 2 | 28 / 4 / 3 |
+| Word error rate ((S+D+I)/118) | ≈ 32% | ≈ 30% |
+| Repetition flags | 0 | 0 |
+| Owner's verdicts | all differences were recognition errors (stated; not entered in the tool) | **all 35 rows marked "Recognition error" in the tool** |
+| Word timestamps | 116 words, structurally clean | 116 words, structurally clean |
+| Median pace | 144 wpm | 132 wpm (one window flagged: 5–10 s, 180 wpm) |
+
+**Reading the comparison**
+- Going from tiny.en to base.en (about twice the model) improved things only slightly, from ≈32% to ≈30% — a small difference on one recording, not a trend. The model size alone didn't fix it.
+- Both models went wrong in much the same places: "brass lantern" → "brush on some" (both), "Willow" → "the"/"video", "swore it burned until morning" → garbled, "mattered" → "Watchmassad"/"method", "warm circle of light" → "one cycle of lives"/"one circle of life". base.en did get "neighbours" right where tiny.en wrote "nibbles", and handled "slowed down to say good night" better. Shared trouble spots suggest the cause lies at least partly in the audio itself (the voice, the microphone, the room), but this recording cannot separate those.
+- Several of the errors change word endings: liked → "like", checked → "checks", slowed → "slow", path → "parts". This is an observation about the output, not a diagnosis of the cause.
+- A few "differences" are splits of one word: "Okafor" became "O" + "Kaffor" (counted as 1 added + 1 substituted), so the raw counts overstate the number of distinct mistakes slightly; the error rate remains high either way.
+- Word timestamps from base.en attached the long sentence-end pauses to the right word 3 times out of 5 (after "garden.", "last.", "many." but not after "passed." or "early."). Better than tiny.en, still inconsistent. Pause *lengths* (0.34–1.06 s, from the audio) were the same for both models.
+- Neither model's output can be used to say what the reader said. Repetition handling was not testable on this reading.
+
+**Not tried:** whisper-small (≈ 251 MB download); a second reader with a different accent on the same phone and room (would separate accent from microphone/room); the owner's voice on a different microphone or in a quieter room; the repetition/omission/pause/pace/noise cases with the owner's voice.
+
+### 2026-10-08 — external cross-check: the same recording in Google AI Studio (free tier), run by the owner
+
+**Not part of the lab and not on-device.** The owner uploaded `Normal reading.m4a` to Google AI Studio (free tier) and pasted the answers. I did not run it and cannot verify how it was produced. Its answer listed "Whisper large-v3 / faster-whisper / float16 / 4 threads"; **that is unverified and probably not what actually ran** (a chat model describing its own tooling isn't reliable evidence; the model name shown in AI Studio's model selector would say what was used). Only the first answer (asked before the passage was shown) counts as an independent transcript; the second answer was produced with the passage in the conversation, so its "no substitutions / no repetitions / clean delivery" statements are not independent evidence.
+
+Analysed here with the lab's own comparison code:
+
+| Measure | tiny.en | base.en | Google AI Studio (free tier) |
+|---|---|---|---|
+| Words in transcript | 116 | 116 | 116 |
+| Differences vs the passage | 32 sub / 4 omitted / 2 added | 28 / 4 / 3 | **0 / 1 / 0** — omitted "and" |
+| Word error rate | ≈ 32% | ≈ 30% | **≈ 0.8%** |
+| Where it runs | on the device | on the device | Google's servers |
+
+- **The recording itself is intelligible.** A stronger system reproduced it almost word for word, including "brass lantern", "Willow Lane", "swore it burned until morning" and "mattered" — the places tiny.en and base.en failed. That points away from the microphone/room as the main cause and towards the small models. It does **not** settle whether accent plays a part for small models.
+- **One candidate genuine difference:** both base.en and the Google transcript lack the "and" in "...went out early, **and** the next day" (about 42–43 s; the audio shows a 0.58 s silence there). Two independent systems agree. To be confirmed by the owner listening; not yet confirmed.
+- **Pace numbers in the Google answer are wrong by its own transcript.** It reported 94 words and 111.7 wpm; its transcript has 116 words, which at 50.9 s is ≈ 137 wpm (≈ 139 wpm from its own timestamps). The lab's 5-second windows gave medians of 132–144 wpm. Its "slow, reflective, expressive storytelling" verdict rests on the wrong figure, and statements about intent ("deliberate phrasing pause") and enunciation ("no clipped word endings") were unrequested and can't be verified from the audio.
+- **Pauses:** 9 of Google's 11 pauses overlap a silence measured from the audio, but its windows start on average 0.21 s later than the lab's. Two of its pauses (1.10–1.54 s, 44.18–44.50 s) have no audio-measured counterpart, and five audio-measured pauses of 0.34–0.52 s (mid-sentence, e.g. at 23.28 s and 48.48 s) are missing from its list. Broad agreement on the sentence-end pauses; disagreement on short ones. Which is right was not checked by listening.
+- **Product constraints:** the strong result came from a cloud service; the brief forbids sending recordings to a server, and free-tier terms/quotas can change. Whisper large-v3 is roughly 3 GB, far beyond what a browser or phone could download.
+
+**Next candidate (not run):** whisper-small (≈ 251 MB) in the lab, to see whether a mid-sized on-device model closes the gap.
+
+**Owner's confirmation (2026-10-08):** the owner listened and confirmed they **did omit "and"** in "…went out early, and the next day…". This is the first genuine reading difference found in the real-voice tests: base.en and the Google AI Studio transcript both showed it independently, and the reader confirmed it. (tiny.en did not show it — it wrote "And as the three nibbles" there.) It is also the only verified true positive so far; every other difference reported by tiny.en and base.en on this recording was verified as a recognition error.
+
+### 2026-10-08 — whisper-small.en added to the lab; pipeline check (SYNTHETIC voice only)
+
+Added `onnx-community/whisper-small.en_timestamped` (weights from `openai/whisper-small.en`, Apache-2.0) to the lab's model list. Before sending the owner on a ~250 MB download, I loaded it in the built-in browser (Chromium 152, M3 MacBook Air, CPU/WASM, 4 threads, q8) and ran the **synthetic** US-voice "normal" file. This says nothing about the owner's voice.
+
+| Measure | tiny.en | base.en | small.en |
+|---|---|---|---|
+| Model files | 43.5 MB | 79.6 MB | 251.7 MB (encoder 92.2 + decoder 156.8 + tokenizer/config 2.7) |
+| First download here | 16–532 s (connection varied) | 16–132 s | 357.2 s (≈ 0.7 MB/s) |
+| Transcribing 33.7 s of synthetic speech | 3.2 s (RTF ≈ 0.10) | 5.1 s (≈ 0.15) | 14.3 s (**RTF 0.42**) |
+| Synthetic-voice differences | 2–3 | 2 | **0** |
+
+small.en is roughly 3× slower than base.en and 3× larger. These are laptop numbers; a phone would be slower, and the 14.3 s was measured with the browser pane hidden (UI-stall readings from a hidden pane are not meaningful).
+
+### 2026-10-08 — whisper-small.en on the owner's real recording (third model, same file)
+
+Same `Normal reading.m4a` (50.9 s) in the owner's Chrome, small.en (q8), CPU/WASM, 4 threads, word timestamps.
+
+| Measure | tiny.en | base.en | small.en | Google AI Studio (cloud, unverified setup) |
+|---|---|---|---|---|
+| Model download | 43.5 MB | 79.6 MB | **251.7 MB** | n/a (server) |
+| First load on the owner's connection | 69.2 s | 131.9 s | **532.3 s (≈ 9 min)** | n/a |
+| Transcription of 50.9 s | 4.0 s (RTF 0.08) | 6.3 s (0.12) | **19.1 s (0.38)** | n/a |
+| UI max stall (visible tab) | 2 ms | 2 ms | 10 ms | n/a |
+| Substituted / omitted / added | 32 / 4 / 2 | 28 / 4 / 3 | **16 / 1 / 3** | 0 / 1 / 0 |
+| Word error rate | ≈ 32% | ≈ 30% | **≈ 17%** | ≈ 0.8% |
+| Genuine difference ("and") flagged? | **No** — wrote "And as the three nibbles", hiding it | Yes | Yes | Yes |
+| Differences flagged | 38 | 35 | 20 | 1 |
+| …of which wrong (recognition errors) | 38 | 34 | **19** | 0 |
+
+- Owner's check (stated, not entered in the tool): every difference was a recognition error, **except** the omitted "and", which the owner had already confirmed as a true omission. So small.en flagged 20 differences: **1 genuine, 19 recognition errors (95% of flags wrong)**.
+- **Agreement between models is not a filter.** base.en and small.en flagged the same passage word 16 times; 15 of those were recognition errors and 1 ("and") was real, so 94% of the shared flags were still wrong. Their mistakes are correlated.
+- **Examples still wrong with small.en:** "lantern" → "lance arm", "Willow" → "the video", "swore it burned until morning" → "saw it was burned on ceremony", "gate" → "key", "wicks" → "wigs". Fluent-looking, wrong.
+- **Word endings:** liked → "like", checked → "checks", path → "paths" were misheard by all three on-device models (and others → "other" by small.en); the large cloud model got them right. Observed, not a diagnosis.
+- **Word timestamps remain unreliable around pauses.** For small.en all 8 sentence-end pauses were attached to the word before the sentence's last word (e.g. a pause starting at 17.00 s "between community and Children" although "garden." is the last word), the same late-by-about-a-word pattern as tiny.en; base.en got 3 of 5. Pause lengths and start times (from the audio) are the dependable part.
+- **Pace:** median 144 wpm; the one flagged window (5–10 s, 192 wpm) is a moment to listen to. Overall pace from the known passage is ≈ 137 wpm.
+- Repetition handling still not testable with the owner's voice (no repeats in this reading).
+
+## 2026-10-08 — ink blue, warm ivory and apricot refinement with the bookmark companion (checked by Claude Code)
+
+A visual refinement of the existing screens (tokens, type, surfaces, companion, header/footer layout, PWA icon colours). Behaviour, the recorder, the lab and the service worker logic were not changed. Everything below was run in this session; where something could only be emulated or not tested, it says so.
+
+### Automated
+| Check | Result |
+|---|---|
+| `npx vitest run` (app) | 7 files, **65 tests pass** (29 existing + 36 new: 27 colour-contrast assertions read from the real CSS tokens, 6 companion/decoration accessibility checks, 3 Install-button cases (prompt, iOS steps, nothing)) |
+| `npx vitest run --config lab/vitest.config.ts` | 2 files, 26 tests pass (unchanged) |
+| `npx tsc --noEmit` for the app and for `lab/` | no errors |
+| `npm run build` (default Cloudflare target) and `NITRO_PRESET=node-server npm run build` | both succeed |
+| Search of `.output/` for transformers, whisper, tesseract, `asr.worker`, `lab/` | no matches: the lab and AI code are not in the production build |
+| ESLint | **No code-quality errors** (`--rule 'prettier/prettier: off'` is clean). The repository's own `prettier/prettier` rule (printWidth 100) was already failing before this work (161 errors in `src/` at the previous commit, mostly long lines in committed files); I did not reformat the repository. `src/routes/index.tsx` was reformatted by Prettier as I edited it. |
+
+### Contrast (computed from the tokens; same numbers asserted in `src/test/contrast.test.ts`)
+Normal text needs 4.5:1; essential control edges and indicators need 3:1.
+| Pair | on page `#F6F2E8` | on card `#FDFAF4` | on tint `#EEEDEB` | other |
+|---|---|---|---|---|
+| Body text `#1E2B4A` | 12.53 | 13.44 | 11.97 | white field 14.00; apricot chip 11.78 |
+| Headings `#07194A` | 15.06 | 16.16 | 14.39 | |
+| Supporting text `#4A5B78` | 6.14 | 6.59 | 5.87 | muted track 5.40 |
+| Ink `#0B2560` (links, quiet buttons, focus ring, selected border, check marks) | 12.97 | 13.92 | 12.40 | |
+| Ivory `#FDFAF4` text on ink button | | | | 13.92 |
+| Error text `#A11D2B` | 6.89 | 7.39 | 6.58 | white field 7.70 |
+| Control edge `#76829A` (3:1 needed) | 3.46 | 3.71 | 3.31 | white field 3.87 |
+| Apricot `#FCBC88` | 1.48 | 1.59 | 1.41 | decorative only; never text or an essential edge |
+Hover and selected states use the tint with the same text and ink edges (columns above). Disabled controls are exempt. Not checked: contrast of the browser's own audio player and file chooser, and of the faint contour lines (decorative, 7–16% opacity by design).
+
+### Browser (built-in Chromium pane, emulated viewports — **not real devices**)
+| What | Result |
+|---|---|
+| Mobile 375×812: welcome, 5/10/15/Custom tiles, target row, content card (paste), page gallery (3 generated test images), Continue bar, Read dock, Review, Sample feedback, sample session (read → review → feedback), exit confirmation | All render in the new palette; no horizontal overflow; Continue bar and dock cover nothing (page reserves their height; footer sits above the reserved space) |
+| Desktop 1280×800: welcome, target selected, content, gallery, Read, exit confirmation | As above; contours visible only in the margins |
+| 320 px and 375 px: header with logo, Install app, Exit session | Fits on one row (right edge exactly at the content edge); below 360 px the buttons drop their icons |
+| Landscape phone 812×375: Read | Header 49 px, dock one row 63 px, no overflow |
+| Companion overlap script (bounding boxes of every text/control/image vs each companion, `.sr-only` excluded) on welcome, target set, content, Read (mobile dock and desktop card) at 375 and 1280 | No overlaps. After a fix, the peeking companion also clears the sticky header when the card scrolls into view (top 67 px vs header bottom 65 px) |
+| Dock height with the listening companion | Status row still 20 px tall (the companion is inline with negative margins) |
+| Keyboard | Tab order logo → Install app → target tiles; focus ring is a solid 2 px ink outline with 2 px offset (`:focus-visible` matched); dialog opens with focus on "Stay in session", Escape closes it |
+| Production build (`node .output/server/index.mjs` on :4173): layout shift while loading | **CLS 0** (one load, warm network and cache — not a throttled run); service worker registers |
+| Fonts requested | DM Serif Display ×1, Fraunces upright 600 ×1 and italic 500 ×1, Manrope 400/500/600 ×3. Fraunces request ≈ 41 KB for the Latin subset, from ≈ 118 KB before. Fallback widths measured against Georgia: within 0.3% (upright) |
+| Upload of a generated 4 s WAV to reach Review | Review heading left-aligned on mobile, companion beside it, text not covered |
+
+### Not verified
+- **Real devices** (iPhone Safari, Android Chrome, installed PWA), the iOS install popover in real Safari (only its logic is unit-tested), and a real on-screen keyboard (the keyboard-open Continue bar behaviour was not re-tested; its logic is unchanged).
+- **Reduced motion** was checked only by reading the CSS (the companion's wave is inside `prefers-reduced-motion: no-preference`, the other animations are disabled under `reduce`); the pane can't emulate the setting, so I did not watch it.
+- **Real microphone recording states** (recording, paused, finishing) were not re-driven here — the embedded browser has no microphone. Their markup was only restyled through shared tokens and the dock/card; the recorder code is unchanged and the earlier recording checks in this log still apply.
+- Dark mode (the app is light-only), print, forced-colours mode, very slow connections (CLS was measured on a fast one).
+- The exact original companion artwork: I did not have it. The companion is a new drawing made from the written description.
+- Whether the Lovable-hosted site has picked up this commit.

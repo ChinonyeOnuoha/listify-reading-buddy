@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FocusEvent } from "react";
 import { Check, ClipboardPaste, Info, MoreHorizontal, Plus, Upload } from "lucide-react";
+import { Companion } from "./Companion";
 import { PageGallery } from "./PageGallery";
 
 export type PageImage = { id: string; url: string; name: string };
@@ -160,7 +161,9 @@ export function PrepareStep(p: Props) {
 
   // Structure stays stable across states so the text editor is never remounted (focus and caret survive).
   return (
-    <section ref={cardRef} id="content-card" className="card" aria-labelledby="content-h">
+    <section ref={cardRef} id="content-card" className="card relative mt-4 scroll-mt-4" aria-labelledby="content-h">
+      {/* Peeks over the card's top-right corner, in the gap above it: never over the heading, text or controls. */}
+      <Companion pose="peek" className="pointer-events-none absolute right-6 bottom-[calc(100%-1px)] h-auto w-12" />
       <div className="flex items-start justify-between gap-x-4 gap-y-1">
         <h2 id="content-h" tabIndex={-1} className="text-xl font-medium outline-none">
           {title}

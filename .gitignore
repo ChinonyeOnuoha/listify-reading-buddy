@@ -38,3 +38,6 @@ dist-ssr
 
 # AI lab: locally generated synthetic test audio (pipeline checks only)
 lab/synthetic-audio/
+
+# Local-only Claude Code settings and launch configs
+.claude/

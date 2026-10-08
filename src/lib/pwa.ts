@@ -11,6 +11,15 @@ const isIOS = () =>
   (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
 /**
+ * When may "A new version is ready" be shown? Only when reloading can't lose anything: not in the sample walkthrough,
+ * not while a personal session exists (target, content or recording), and only on the welcome screens.
+ * The update itself is never applied automatically — only by the person pressing "Update now".
+ */
+export function shouldOfferUpdate(s: { updateReady: boolean; sample: boolean; hasSession: boolean; view: "home" | "prepare" | "read" | "review" | "samples" }) {
+  return s.updateReady && !s.sample && !s.hasSession && (s.view === "prepare" || s.view === "home");
+}
+
+/**
  * Installation, offline and update state.
  * - The service worker is registered in production builds only (the dev server doesn't use it).
  * - A new version never takes over by itself: `applyUpdate` is only offered by the UI at a safe point.
@@ -52,7 +61,7 @@ export function usePwa() {
     let onVisible: (() => void) | null = null;
     if (import.meta.env.PROD && "serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/sw.js")
+        .register("/sw.js", { updateViaCache: "none" }) // always fetch sw.js fresh so a new build is noticed
         .then((reg) => {
           regRef.current = reg;
           const watch = (w: ServiceWorker | null) => {

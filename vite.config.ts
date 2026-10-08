@@ -5,8 +5,11 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { serviceWorkerPlugin } from "./tools/sw-plugin";
 
 export default defineConfig({
+  // Emits /sw.js with a build id derived from the built files, so app updates are detected (see tools/sw/sw.template.js).
+  plugins: [serviceWorkerPlugin()],
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

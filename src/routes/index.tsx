@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Lock, LogOut } from "lucide-react";
 import { BookMark } from "@/components/reading/BookMark";
+import { CompanionPerch } from "@/components/reading/Companion";
+import { InstallButton } from "@/components/reading/InstallButton";
 import { ContinueBar } from "@/components/reading/ContinueBar";
 import { PrepareStep, type InputMode, type PageImage } from "@/components/reading/PrepareStep";
 import { ReadStep } from "@/components/reading/ReadStep";
@@ -11,13 +13,17 @@ import { SampleSession, type SampleStage } from "@/components/reading/SampleSess
 import { SessionDialog } from "@/components/reading/SessionDialog";
 import { TargetCard } from "@/components/reading/TargetCard";
 import { formatTime, useRecorder } from "@/components/reading/useRecorder";
-import { usePwa } from "@/lib/pwa";
+import { shouldOfferUpdate, usePwa } from "@/lib/pwa";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Reading Buddy — read aloud, kindly" },
-      { name: "description", content: "Make a little time to read aloud: bring a passage, record yourself reading, then listen back." },
+      {
+        name: "description",
+        content:
+          "Make a little time to read aloud: bring a passage, record yourself reading, then listen back.",
+      },
       { property: "og:title", content: "Reading Buddy" },
       { property: "og:description", content: "A warm companion for making time to read aloud." },
       { property: "og:type", content: "website" },
@@ -50,7 +56,8 @@ function Index() {
   const sessionGen = useRef(0);
   const isCurrentSession = useCallback((g: number) => g === sessionGen.current, []);
 
-  const hasSession = target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.unfinished;
+  const hasSession =
+    target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.unfinished;
 
   // Review playback position, kept while visiting sample feedback (reset for a new recording).
   const [reviewPos, setReviewPos] = useState(0);
@@ -74,7 +81,8 @@ function Index() {
   const prevView = useRef<View>(view);
   useEffect(() => {
     if (view === "samples") document.getElementById("samples-h")?.focus();
-    if (view === "review" && prevView.current === "samples") document.getElementById("review-h")?.focus();
+    if (view === "review" && prevView.current === "samples")
+      document.getElementById("review-h")?.focus();
     prevView.current = view;
   }, [view]);
 
@@ -82,7 +90,8 @@ function Index() {
   const [sample, setSample] = useState<SampleStage | null>(null);
 
   // Usable content only: non-whitespace text, or at least one successfully loaded page.
-  const canContinue = (mode === "paste" && text.trim().length > 0) || (mode === "upload" && images.length > 0);
+  const canContinue =
+    (mode === "paste" && text.trim().length > 0) || (mode === "upload" && images.length > 0);
 
   // Pasted text only switches to the "ready" layout after a paste or when the reader leaves the field —
   // never on the first typed character.
@@ -214,223 +223,278 @@ function Index() {
 
   const welcome = (
     <header className="text-left sm:text-center">
-      <h1 id="welcome-h" tabIndex={-1} className="welcome-serif text-[1.875rem] leading-tight text-heading outline-none sm:text-[2.375rem]">
-        What shall we read aloud together today?
+      <h1
+        id="welcome-h"
+        tabIndex={-1}
+        className="display-serif text-[2rem] text-balance text-heading outline-none sm:mx-auto sm:max-w-[18ch] sm:text-[2.75rem]"
+      >
+        What shall we read aloud <em>together</em> today?
       </h1>
     </header>
   );
 
+  // Room the fixed bottom bar (Continue / recording dock) needs, reserved under the footer so nothing slides beneath it.
+  const reserved =
+    showBar && barSpace
+      ? barSpace + 24
+      : view === "read" && !sample && dockSpace
+        ? dockSpace + 16
+        : undefined;
+
   return (
     <>
-      {/* Compact, opaque, sticky header: the logo goes home; Exit session / Exit sample sit on the right. */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background">
-        {/* Slimmer on short screens (landscape phones) so the reading area isn't squeezed between header and dock. */}
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8 [@media(max-height:480px)]:h-12">
-          <button ref={logoRef} onClick={onLogo} className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1 text-primary hover:bg-tint" aria-label="Reading Buddy home">
-            {/* Compact serif monogram: the B tucks slightly under the R, both stay readable. */}
-            <span className="font-logo flex items-baseline text-[1.75rem] leading-none" aria-hidden>
-              <span>R</span>
-              <span className="-ml-[0.14em]">B</span>
-            </span>
-            <BookMark className="h-6 w-8" />
-          </button>
-          {sample ? (
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="rounded-md bg-peach px-2.5 py-1 text-sm font-medium">Sample session</span>
-              <button className="btn-quiet -mr-3" onClick={() => setSample(null)}>
-                <LogOut className="size-4" aria-hidden /> Exit sample
-              </button>
-            </div>
-          ) : (
-            hasSession && (
-              <button ref={exitRef} className="btn-quiet -mr-3 text-sm font-normal text-muted-foreground hover:text-primary" onClick={() => setExitOpen(true)}>
-                <LogOut className="size-4" aria-hidden /> Exit session
-              </button>
-            )
-          )}
-        </div>
-      </header>
-
-      <main
-        className={`mx-auto flex flex-col gap-4 px-4 py-8 sm:px-6 sm:py-12 lg:gap-6 ${
-          (sample ? sample === "read" : view === "read") ? "max-w-6xl" : "max-w-3xl"
-        }`}
-        // Reserve room for the fixed Continue bar so it never covers previews, editing controls or helper text.
-        style={
-          showBar && barSpace
-            ? { paddingBottom: barSpace + 24 }
-            : view === "read" && !sample && dockSpace
-              ? { paddingBottom: dockSpace + 16 }
-              : undefined
-        }
+      <div
+        className="flex min-h-dvh flex-col"
+        style={reserved ? { paddingBottom: reserved } : undefined}
       >
-        {!pwa.online && (
-          <p role="status" className="rounded-2xl border border-border bg-card px-4 py-2 text-sm">
-            You're offline. Reading Buddy still works in this {place}.
-          </p>
-        )}
-        {/* A new version is only offered when nothing would be lost by reloading. */}
-        {pwa.updateReady && !sample && !hasSession && (view === "prepare" || view === "home") && (
-          <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2 text-sm">
-            A new version of Reading Buddy is ready.
-            <button className="text-link" onClick={pwa.applyUpdate}>
-              Update now
+        {/* Compact, opaque, sticky header: the logo goes home; Exit session / Exit sample sit on the right. */}
+        <header className="sticky top-0 z-20 border-b border-border bg-background">
+          {/* Slimmer on short screens (landscape phones) so the reading area isn't squeezed between header and dock. */}
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8 [@media(max-height:480px)]:h-12">
+            <button
+              ref={logoRef}
+              onClick={onLogo}
+              className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1 text-primary hover:bg-tint"
+              aria-label="Reading Buddy home"
+            >
+              {/* Compact serif monogram: the B tucks slightly under the R, both stay readable. */}
+              <span
+                className="font-logo flex items-baseline text-[1.75rem] leading-none"
+                aria-hidden
+              >
+                <span>R</span>
+                <span className="-ml-[0.14em]">B</span>
+              </span>
+              <BookMark className="h-6 w-8" />
             </button>
-          </p>
-        )}
-
-        {sample ? (
-          <SampleSession stage={sample} setStage={setSample} onStartMine={() => setSample(null)} />
-        ) : (
-          <>
-            {view === "home" && (
-              <>
-                {welcome}
-                <section className="card reveal" aria-labelledby="resume-h">
-                  <h2 id="resume-h" className="text-xl font-medium">
-                    Your session is waiting
-                  </h2>
-                  {summary.length > 0 && <p className="mt-1 text-muted-foreground">{summary.join(" · ")}</p>}
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {pwa.standalone ? "Closing the app clears it." : "Closing or reloading this tab clears it."}
-                  </p>
-                  <button className="btn-primary mt-6 w-full sm:w-auto" onClick={() => setView(resumeTo)}>
-                    Resume session <ArrowRight className="size-[18px]" aria-hidden />
-                  </button>
-                </section>
-              </>
-            )}
-
-            {view === "prepare" && (
-              <>
-                {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
-
-                <TargetCard target={target} onSet={setTarget} />
-
-                {target !== null && (
-                  <PrepareStep
-                    mode={mode}
-                    onSelectMode={selectMode}
-                    text={text}
-                    setText={setText}
-                    images={images}
-                    setImages={setImages}
-                    collapsed={collapsed}
-                    changing={changing}
-                    onChangeContent={() => {
-                      modeAtChange.current = mode;
-                      setChanging(true);
-                    }}
-                    onCancelChange={() => {
-                      setMode(modeAtChange.current);
-                      setChanging(false);
-                    }}
-                    onPasteCommit={commitPaste}
-                    onPagesAdded={() => setChanging(false)}
-                    generation={sessionGen.current}
-                    isCurrentSession={isCurrentSession}
+            {sample ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="rounded-md bg-apricot-tint px-2.5 py-1 text-sm font-medium">
+                  Sample session
+                </span>
+                <button className="btn-header" onClick={() => setSample(null)}>
+                  <LogOut className="size-4" aria-hidden /> Exit sample
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 sm:gap-3">
+                {(view === "prepare" || view === "home") && !pwa.standalone && (
+                  <InstallButton
+                    canInstall={pwa.canInstall}
+                    ios={pwa.ios}
+                    onInstall={() => void pwa.install()}
                   />
                 )}
-
-                {/* Fixed to the bottom normally; while a phone keyboard is open it sits here, right under the content. */}
-                {showBar && <ContinueBar onContinue={() => setView("read")} onReserve={setBarSpace} />}
-              </>
-            )}
-
-            {(view === "prepare" || view === "home") && (
-              <p className="mt-2 text-center text-muted-foreground">
-                Just exploring?{" "}
-                <button className="text-link inline-flex items-center gap-1" onClick={() => setSample("read")}>
-                  Try a sample session <ArrowRight className="size-4" aria-hidden />
-                </button>
-              </p>
-            )}
-
-            {view === "read" && mode && target !== null && (
-              <ReadStep
-                mode={mode}
-                text={text}
-                images={images}
-                target={target}
-                recState={rec.state}
-                micError={rec.micError}
-                problem={rec.problem}
-                elapsed={rec.elapsed}
-                takeDuration={rec.take ? rec.take.duration : null}
-                onStart={() => void rec.start()}
-                onPause={rec.pause}
-                onResume={rec.resume}
-                onPreview={rec.previewSoFar}
-                onFinish={rec.finish}
-                onUpload={rec.upload}
-                onBack={() => setView("prepare")}
-                onReview={() => setView("review")}
-                onReserve={setDockSpace}
-              />
-            )}
-
-            {view === "review" && target !== null && (
-              <ReviewStep
-                take={rec.take}
-                target={target}
-                onBack={() => setView("read")}
-                onDiscard={() => {
-                  rec.clear();
-                  setView("read");
-                }}
-                onNewSession={newSession}
-                onExploreSamples={openSamples}
-                startAt={reviewPos}
-                onPosition={setReviewPos}
-              />
-            )}
-
-            {view === "samples" && (
-              <>
-                <div>
-                  <button className="btn-quiet -ml-3" onClick={leaveSamples}>
-                    <ArrowLeft className="size-4" aria-hidden /> Back to recording
+                {hasSession && (
+                  <button ref={exitRef} className="btn-header" onClick={() => setExitOpen(true)}>
+                    <LogOut className="size-4" aria-hidden /> Exit session
                   </button>
-                  <h1 id="samples-h" tabIndex={-1} className="mt-3 text-left text-[1.75rem] font-semibold outline-none sm:text-center sm:text-[2.125rem]">
-                    Sample feedback
-                  </h1>
-                </div>
-                <SampleFeedback />
-              </>
-            )}
-          </>
-        )}
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          <Lock className="mr-1.5 -mt-0.5 inline size-4" aria-hidden />
-          {pwa.standalone
-            ? "Your passage, pages and recordings stay in this app only while it's open, and are never uploaded."
-            : "Your passage, pages and recordings stay in this browser tab and are never uploaded."}
-        </p>
-
-        {/* Understated install option on the welcome screens only; hidden once installed. */}
-        {!sample && (view === "prepare" || view === "home") && !pwa.standalone && (pwa.canInstall || pwa.ios) && (
-          <div className="-mt-2 text-center text-sm text-muted-foreground">
-            {pwa.canInstall ? (
-              <button className="text-link" onClick={() => void pwa.install()}>
-                Install Reading Buddy
-              </button>
-            ) : (
-              <details className="inline-block text-left">
-                <summary className="text-link cursor-pointer list-none text-center">Install Reading Buddy</summary>
-                <p className="mt-2 max-w-xs">In Safari, tap Share, then “Add to Home Screen”. Sessions still clear when the app is closed.</p>
-              </details>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </main>
+        </header>
 
+        <main
+          className={`mx-auto flex w-full flex-col gap-4 px-4 py-8 sm:px-6 sm:py-12 lg:gap-6 ${
+            (sample ? sample === "read" : view === "read") ? "max-w-6xl" : "max-w-3xl"
+          }`}
+        >
+          {!pwa.online && (
+            <p role="status" className="rounded-2xl border border-border bg-card px-4 py-2 text-sm">
+              You're offline. Reading Buddy still works in this {place}.
+            </p>
+          )}
+          {/* A new version is only offered when nothing would be lost by reloading. */}
+          {shouldOfferUpdate({
+            updateReady: pwa.updateReady,
+            sample: !!sample,
+            hasSession,
+            view,
+          }) && (
+            <p
+              role="status"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2 text-sm"
+            >
+              A new version of Reading Buddy is ready.
+              <button className="text-link" onClick={pwa.applyUpdate}>
+                Update now
+              </button>
+            </p>
+          )}
+
+          {sample ? (
+            <SampleSession
+              stage={sample}
+              setStage={setSample}
+              onStartMine={() => setSample(null)}
+            />
+          ) : (
+            <>
+              {view === "home" && (
+                <>
+                  {welcome}
+                  <CompanionPerch pose="wave" animate>
+                    <section className="card reveal" aria-labelledby="resume-h">
+                      <h2 id="resume-h" className="text-xl font-medium">
+                        Your session is waiting
+                      </h2>
+                      {summary.length > 0 && (
+                        <p className="mt-1 text-muted-foreground">{summary.join(" · ")}</p>
+                      )}
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {pwa.standalone
+                          ? "Closing the app clears it."
+                          : "Closing or reloading this tab clears it."}
+                      </p>
+                      <button
+                        className="btn-primary mt-6 w-full sm:w-auto"
+                        onClick={() => setView(resumeTo)}
+                      >
+                        Resume session <ArrowRight className="size-[18px]" aria-hidden />
+                      </button>
+                    </section>
+                  </CompanionPerch>
+                </>
+              )}
+
+              {view === "prepare" && (
+                <>
+                  {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
+
+                  <TargetCard target={target} onSet={setTarget} />
+
+                  {target !== null && (
+                    <PrepareStep
+                      mode={mode}
+                      onSelectMode={selectMode}
+                      text={text}
+                      setText={setText}
+                      images={images}
+                      setImages={setImages}
+                      collapsed={collapsed}
+                      changing={changing}
+                      onChangeContent={() => {
+                        modeAtChange.current = mode;
+                        setChanging(true);
+                      }}
+                      onCancelChange={() => {
+                        setMode(modeAtChange.current);
+                        setChanging(false);
+                      }}
+                      onPasteCommit={commitPaste}
+                      onPagesAdded={() => setChanging(false)}
+                      generation={sessionGen.current}
+                      isCurrentSession={isCurrentSession}
+                    />
+                  )}
+
+                  {/* Fixed to the bottom normally; while a phone keyboard is open it sits here, right under the content. */}
+                  {showBar && (
+                    <ContinueBar onContinue={() => setView("read")} onReserve={setBarSpace} />
+                  )}
+                </>
+              )}
+
+              {(view === "prepare" || view === "home") && (
+                <p className="mt-2 text-center text-muted-foreground">
+                  Just exploring?{" "}
+                  <button
+                    className="text-link inline-flex items-center gap-1"
+                    onClick={() => setSample("read")}
+                  >
+                    Try a sample session <ArrowRight className="size-4" aria-hidden />
+                  </button>
+                </p>
+              )}
+
+              {view === "read" && mode && target !== null && (
+                <ReadStep
+                  mode={mode}
+                  text={text}
+                  images={images}
+                  target={target}
+                  recState={rec.state}
+                  micError={rec.micError}
+                  problem={rec.problem}
+                  elapsed={rec.elapsed}
+                  takeDuration={rec.take ? rec.take.duration : null}
+                  onStart={() => void rec.start()}
+                  onPause={rec.pause}
+                  onResume={rec.resume}
+                  onPreview={rec.previewSoFar}
+                  onFinish={rec.finish}
+                  onUpload={rec.upload}
+                  onBack={() => setView("prepare")}
+                  onReview={() => setView("review")}
+                  onReserve={setDockSpace}
+                />
+              )}
+
+              {view === "review" && target !== null && (
+                <ReviewStep
+                  take={rec.take}
+                  target={target}
+                  onBack={() => setView("read")}
+                  onDiscard={() => {
+                    rec.clear();
+                    setView("read");
+                  }}
+                  onNewSession={newSession}
+                  onExploreSamples={openSamples}
+                  startAt={reviewPos}
+                  onPosition={setReviewPos}
+                />
+              )}
+
+              {view === "samples" && (
+                <>
+                  <div>
+                    <button className="btn-quiet -ml-3" onClick={leaveSamples}>
+                      <ArrowLeft className="size-4" aria-hidden /> Back to recording
+                    </button>
+                    <h1
+                      id="samples-h"
+                      tabIndex={-1}
+                      className="display-serif mt-3 text-left text-[1.875rem] text-balance outline-none sm:text-center sm:text-[2.375rem]"
+                    >
+                      Sample feedback
+                    </h1>
+                  </div>
+                  <SampleFeedback />
+                </>
+              )}
+            </>
+          )}
+        </main>
+
+        {/* Sits at the bottom of the viewport on short pages and follows the content on long ones. */}
+        <footer className="mx-auto mt-auto w-full max-w-3xl px-4 pt-4 pb-6 text-center text-sm text-muted-foreground sm:px-6">
+          <p>
+            <Lock className="mr-1.5 -mt-0.5 inline size-4" aria-hidden />
+            Your content stays in this {place}. Nothing is uploaded.
+          </p>
+          {!sample && hasSession && view !== "home" && (
+            <p className="mt-0.5">
+              {pwa.standalone
+                ? "Closing the app clears your session."
+                : "Reloading or closing this tab clears your session."}
+            </p>
+          )}
+        </footer>
+      </div>
 
       <SessionDialog
         open={homeDialog !== null}
         onOpenChange={(o) => !o && setHomeDialog(null)}
         title={homeDialog === "failed" ? "The recording couldn't be kept" : "Return home?"}
-        cancelLabel={homeDialog === "failed" ? "Stay here" : rec.state === "paused" ? "Stay here" : "Keep recording"}
+        cancelLabel={
+          homeDialog === "failed"
+            ? "Stay here"
+            : rec.state === "paused"
+              ? "Stay here"
+              : "Keep recording"
+        }
         confirmLabel={homeDialog === "failed" ? "Go home anyway" : "Finish and go home"}
         onConfirm={() => void stopAndGoHome()}
         busy={stopping}
@@ -438,12 +502,13 @@ function Index() {
       >
         {homeDialog === "failed" ? (
           <p>
-            {rec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and content are still here.
+            {rec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and
+            content are still here.
           </p>
         ) : (
           <p>
-            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep it. Your recording and session will stay available in this{" "}
-            {place}.
+            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep
+            it. Your recording and session will stay available in this {place}.
           </p>
         )}
       </SessionDialog>
@@ -457,10 +522,15 @@ function Index() {
         onConfirm={discardSession}
         returnFocus={exitRef}
       >
-        <p>Your reading target, added content and any recording will be cleared. This can't be undone.</p>
+        <p>
+          Your reading target, added content and any recording will be cleared. This can't be
+          undone.
+        </p>
         {rec.unfinished && (
           <p className="font-medium text-foreground">
-            {rec.state === "paused" ? "You have a paused recording — leaving will discard it." : "You're recording right now — leaving will stop and discard it."}
+            {rec.state === "paused"
+              ? "You have a paused recording — leaving will discard it."
+              : "You're recording right now — leaving will stop and discard it."}
           </p>
         )}
       </SessionDialog>

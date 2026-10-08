@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { ArrowLeft, Check, Headphones, Loader2, Mic, Pause, Play, Square, Upload } from "lucide-react";
+import { Companion } from "./Companion";
 import { ConfirmInline } from "./ConfirmInline";
 import { PassageView } from "./PassageView";
 import type { PageImage } from "./PrepareStep";
@@ -236,6 +237,8 @@ export function ReadStep(p: Props) {
           <div className={`min-w-0 [@media(max-height:480px)]:w-2/5`}>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="flex min-w-0 items-center gap-2 font-medium" role="status" aria-live="polite">
+                {/* Small and quiet; the negative margins keep it from making the dock any taller. */}
+                <Companion pose="listen" className="pointer-events-none -my-1 hidden h-7 w-auto shrink-0 min-[360px]:block" />
                 {dot}
                 <span className="truncate">{status}</span>
               </span>
@@ -275,8 +278,10 @@ export function ReadStep(p: Props) {
 
       {/* ---- Desktop: compact controls card beside the passage ---- */}
       <aside aria-label="Recording controls" className="card hidden lg:sticky lg:top-24 lg:block lg:p-8">
-        <h2 className="text-xl font-medium">Your reading</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{friendly}</p>
+        {/* Sits quietly in the corner; the heading and message reserve room beside it. */}
+        <Companion pose="listen" className="pointer-events-none absolute top-8 right-8 h-auto w-9" />
+        <h2 className="pr-12 text-xl font-semibold">Your reading</h2>
+        <p className="mt-1 pr-12 text-sm text-muted-foreground">{friendly}</p>
         <p className="mt-4 flex items-center gap-2 text-sm font-medium">
           {dot}
           {status}

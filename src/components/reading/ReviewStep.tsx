@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, RotateCcw, Trash2 } from "lucide-react";
+import { Companion } from "./Companion";
 import { ConfirmInline } from "./ConfirmInline";
 import { formatTime, type AudioTake } from "./useRecorder";
 
@@ -29,10 +30,11 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onEx
 
   return (
     <>
-      {/* Phones: left-aligned with the content edge. Desktop: centred, as before. */}
-      <header className="text-left sm:text-center">
-        <h1 id="review-h" tabIndex={-1} className="text-[1.75rem] font-semibold outline-none sm:text-[2.125rem]">
-          Reading done 🙌🏾 Have a listen back.
+      {/* Phones: left-aligned with the content edge. Desktop: centred. The right edge is kept free for the companion. */}
+      <header className="relative pr-16 text-left sm:pr-0 sm:text-center">
+        <Companion pose="celebrate" className="pointer-events-none absolute top-0 right-0 h-auto w-12 sm:w-14" />
+        <h1 id="review-h" tabIndex={-1} className="display-serif text-[1.875rem] text-balance outline-none sm:text-[2.375rem]">
+          Reading done 🙌🏾 Have a <em>listen back</em>.
         </h1>
         <p className="mt-2 text-muted-foreground">AI feedback isn't connected yet.</p>
       </header>
@@ -107,7 +109,7 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onEx
         <h2 id="explore-h" className="text-xl font-medium">
           Curious what feedback could look like?
         </h2>
-        <p className="mt-1 text-muted-foreground">Made-up examples on a sample passage, separate from your reading.</p>
+        <p className="mt-1 text-muted-foreground">Illustrative examples on a sample passage, separate from your reading.</p>
         <button className="btn-secondary mt-5" onClick={onExploreSamples}>
           Explore sample feedback <ArrowRight className="size-4" aria-hidden />
         </button>

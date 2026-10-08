@@ -1,67 +1,82 @@
 // Reading Buddy — AI feasibility lab (development only; not part of the production app).
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { align, decodeTo16k, findPauses, paceWindows, placePauses, timestampQuality, type Op, type Word } from "./analysis";
+import { buildSummary, TJS_VERSION } from "./report";
+import { LabStore, canTranscribe, selectionIsLoaded, statusText, transcribeBlockedReason, type Device, type TsMode, type WorkerLike } from "./store";
 import { CASES, PASSAGE } from "./test-material";
 
-const TJS_VERSION = "4.3.1";
 const TESS_VERSION = "7.0.0";
 const MODELS = [
   { id: "onnx-community/whisper-tiny.en_timestamped", label: "Whisper tiny.en (word timestamps)", expectMB: "≈41 MB (q8)" },
-  { id: "onnx-community/whisper-base.en_timestamped", label: "Whisper base.en (word timestamps)", expectMB: "≈77 MB (q8)" },
+  { id: "onnx-community/whisper-base.en_timestamped", label: "Whisper base.en (word timestamps)", expectMB: "≈80 MB (q8)" },
+  { id: "onnx-community/whisper-small.en_timestamped", label: "Whisper small.en (word timestamps)", expectMB: "≈252 MB (q8) — large download" },
 ];
+
+/** "onnx-community/whisper-small.en_timestamped" → "openai/whisper-small.en" */
+const baseWeights = (id: string) => `openai/whisper-${id.match(/whisper-([a-z]+\.en)/)?.[1] ?? "?"}`;
 type Verdict = "" | "genuine" | "asr-error" | "unsure";
-type LoadInfo = { ms: number; cached: boolean; files?: Record<string, number>; dtype?: unknown; threads?: number | null; crossOriginIsolated?: boolean };
-type Result = { ms: number; text: string; chunks: { text: string; timestamp: [number | null, number | null] }[]; stallMs: number };
 
 const mb = (b: number) => `${(b / 1e6).toFixed(1)} MB`;
 const t = (s: number | null | undefined) => (s == null ? "—" : `${s.toFixed(2)}s`);
 
 /** Tracks the longest gap between timer ticks — a rough measure of whether the page stayed responsive. */
-function useStallMeter() {
-  const ref = useRef<{ id: number; last: number; max: number } | null>(null);
+function createStallMeter() {
+  let s: { id: number; last: number; max: number } | null = null;
   return {
     start() {
-      const s = { id: 0, last: performance.now(), max: 0 };
-      s.id = window.setInterval(() => {
+      if (s) clearInterval(s.id);
+      const m = { id: 0, last: performance.now(), max: 0 };
+      m.id = window.setInterval(() => {
         const now = performance.now();
-        s.max = Math.max(s.max, now - s.last - 50);
-        s.last = now;
+        m.max = Math.max(m.max, now - m.last - 50);
+        m.last = now;
       }, 50);
-      ref.current = s;
+      s = m;
     },
     stop() {
-      const s = ref.current;
       if (!s) return 0;
       clearInterval(s.id);
-      ref.current = null;
-      return Math.round(s.max);
+      const max = Math.round(s.max);
+      s = null;
+      return max;
     },
   };
 }
 
 function Lab() {
+  const [store] = useState(
+    () =>
+      new LabStore(
+        {
+          createWorker: () => new Worker(new URL("./asr.worker.ts", import.meta.url), { type: "module" }) as unknown as WorkerLike,
+          decode: decodeTo16k,
+          stall: createStallMeter(),
+          clearModelCache: () => caches.delete("transformers-cache"),
+        },
+        { model: MODELS[0]!.id, device: "wasm" },
+      ),
+  );
+  const st = useSyncExternalStore(store.subscribe, store.getState);
+  useEffect(() => () => store.dispose(), [store]);
+
   const [passage, setPassage] = useState(PASSAGE);
-  const [model, setModel] = useState(MODELS[0]!.id);
-  const [device, setDevice] = useState<"wasm" | "webgpu">("wasm");
-  const [status, setStatus] = useState("Model not loaded. Nothing is downloaded until you press Load.");
-  const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
-  const [busy, setBusy] = useState<"" | "loading" | "transcribing">("");
-  const [loadInfo, setLoadInfo] = useState<LoadInfo | null>(null);
-  const [loadStall, setLoadStall] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [caseId, setCaseId] = useState(CASES[0]!.id);
-  const [file, setFile] = useState<{ name: string; url: string; seconds: number; synthetic: boolean } | null>(null);
-  const audio16 = useRef<Float32Array | null>(null);
-  const [tsMode, setTsMode] = useState<"word" | "segment">("word");
-  const [result, setResult] = useState<Result | null>(null);
+  const [tsMode, setTsMode] = useState<TsMode>("word");
   const [verdicts, setVerdicts] = useState<Record<number, Verdict>>({});
   const [minPause, setMinPause] = useState(0.3);
   const [synthAvailable, setSynthAvailable] = useState<string[]>([]);
-  const workerRef = useRef<Worker | null>(null);
   const player = useRef<HTMLAudioElement>(null);
-  const stall = useStallMeter();
   const hasGpu = typeof navigator !== "undefined" && "gpu" in navigator;
+
+  const { selection, loaded, busy, audio: file, result, error, progress } = st;
+  const model = selection.model;
+  const device = selection.device;
+  const transcribing = busy?.kind === "transcribing";
+  const reason = transcribeBlockedReason(st);
+
+  // A new, replaced or cleared result starts with no verdicts.
+  useEffect(() => setVerdicts({}), [result]);
 
   // Synthetic pipeline-check files exist only if generated locally (lab/synthetic-audio, git-ignored).
   useEffect(() => {
@@ -69,99 +84,6 @@ function Lab() {
       setSynthAvailable(ids.filter((x): x is string => !!x)),
     );
   }, []);
-
-  const worker = () => {
-    if (workerRef.current) return workerRef.current;
-    const w = new Worker(new URL("./asr.worker.ts", import.meta.url), { type: "module" });
-    w.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === "status") setStatus(m.text);
-      else if (m.type === "progress") setProgress({ loaded: m.loaded, total: m.total });
-      else if (m.type === "loaded") {
-        setLoadStall(stall.stop());
-        setLoadInfo(m);
-        setBusy("");
-        setStatus(m.alreadyLoaded ? "Model already loaded." : `Model ready (${m.cached ? "from browser cache" : "downloaded"}) in ${(m.ms / 1000).toFixed(1)} s.`);
-      } else if (m.type === "result") {
-        const stallMs = stall.stop();
-        setResult({ ms: m.ms, text: m.text, chunks: m.chunks, stallMs });
-        setVerdicts({});
-        setBusy("");
-        setStatus(`Transcribed in ${(m.ms / 1000).toFixed(1)} s.`);
-      } else if (m.type === "error") {
-        stall.stop();
-        setBusy("");
-        const hint = /unauthori[sz]ed|404|not found/i.test(m.message)
-          ? " — the model files couldn't be downloaded (the model may not exist or may need access)."
-          : /fetch|network/i.test(m.message)
-            ? " — check the internet connection; files already downloaded stay cached."
-            : "";
-        setError(`${m.stage === "load" ? "Couldn't load the model" : "Couldn't transcribe"}: ${m.message}${hint}`);
-        setStatus("Stopped after an error.");
-      }
-    };
-    w.onerror = (e) => {
-      setBusy("");
-      setError(`The speech worker failed: ${e.message || "unknown error"} (this browser may not support module workers or WASM).`);
-    };
-    workerRef.current = w;
-    return w;
-  };
-
-  const load = () => {
-    setError(null);
-    setProgress(null);
-    setBusy("loading");
-    setStatus("Starting…");
-    stall.start();
-    worker().postMessage({ type: "load", model, device });
-  };
-  // Cancelling terminates the worker: the only dependable way to stop a download or inference mid-way.
-  const cancel = () => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
-    stall.stop();
-    setBusy("");
-    setLoadInfo(null);
-    setProgress(null);
-    setStatus("Cancelled. The model is unloaded (files fully downloaded before cancelling stay in the browser cache).");
-  };
-  const deleteModels = async () => {
-    cancel();
-    const ok = await caches.delete("transformers-cache");
-    setStatus(ok ? "Deleted downloaded model files from this browser." : "No downloaded model files were stored.");
-  };
-
-  const loadAudio = async (blob: Blob, name: string, synthetic: boolean) => {
-    setError(null);
-    setResult(null);
-    try {
-      const { audio, seconds } = await decodeTo16k(blob);
-      audio16.current = audio;
-      if (file) URL.revokeObjectURL(file.url);
-      setFile({ name, url: URL.createObjectURL(blob), seconds, synthetic });
-    } catch {
-      setError(`Couldn't read “${name}” as audio in this browser. Try WAV, MP3 or M4A.`);
-    }
-  };
-  const transcribe = () => {
-    if (!audio16.current) return;
-    setError(null);
-    setBusy("transcribing");
-    setStatus("Transcribing on this device…");
-    stall.start();
-    const copy = audio16.current.slice();
-    worker().postMessage({ type: "transcribe", audio: copy, timestamps: tsMode }, [copy.buffer]);
-  };
-  const clearAll = () => {
-    if (file) URL.revokeObjectURL(file.url);
-    setFile(null);
-    audio16.current = null;
-    setResult(null);
-    setVerdicts({});
-    setError(null);
-    setStatus(loadInfo ? "Test data cleared. The model stays loaded." : "Test data cleared.");
-  };
 
   const playAt = (start: number | null | undefined, end?: number | null) => {
     const a = player.current;
@@ -178,17 +100,22 @@ function Lab() {
     a.addEventListener("timeupdate", onTime);
   };
 
+  // Everything below describes the *result*, using the settings it was produced with — never the live dropdowns.
+  const rMode: TsMode = result?.provenance.tsMode ?? "word";
   const words: Word[] = useMemo(
     () => (result?.chunks ?? []).map((c) => ({ text: c.text, start: c.timestamp?.[0] ?? null, end: c.timestamp?.[1] ?? null })),
     [result],
   );
-  const ops: Op[] = useMemo(() => (result ? align(passage, tsMode === "word" ? words : [{ text: result.text, start: null, end: null }]) : []), [result, passage, words, tsMode]);
+  const ops: Op[] = useMemo(() => (result ? align(passage, rMode === "word" ? words : [{ text: result.text, start: null, end: null }]) : []), [result, passage, words, rMode]);
   const diffs = ops.map((o, i) => ({ o, i })).filter(({ o }) => o.type !== "match");
-  const quality = useMemo(() => (tsMode === "word" && result ? timestampQuality(words) : null), [words, result, tsMode]);
-  const pauseInfo = useMemo(() => (result && audio16.current ? findPauses(audio16.current, 16000, minPause) : null), [result, minPause]);
+  const quality = useMemo(() => (rMode === "word" && result ? timestampQuality(words) : null), [words, result, rMode]);
+  const pauseInfo = useMemo(() => {
+    const samples = store.getSamples();
+    return result && samples ? findPauses(samples, 16000, minPause) : null;
+  }, [result, minPause, store]);
   const pauses = useMemo(() => (pauseInfo ? placePauses(pauseInfo.pauses, words) : []), [pauseInfo, words]);
   const pace = useMemo(() => (quality?.reliable ? paceWindows(words) : null), [quality, words]);
-  const kase = CASES.find((c) => c.id === caseId)!;
+  const kase = CASES.find((c) => c.id === result?.provenance.caseId) ?? CASES[0]!;
   const counts = {
     sub: diffs.filter(({ o }) => o.type === "sub").length,
     del: diffs.filter(({ o }) => o.type === "del").length,
@@ -196,20 +123,6 @@ function Lab() {
     rep: diffs.filter(({ o }) => o.type === "ins" && o.repeatOf).length,
   };
   const verdictCounts = Object.values(verdicts).reduce<Record<string, number>>((a, v) => (v ? { ...a, [v]: (a[v] ?? 0) + 1 } : a), {});
-
-  const summary = () =>
-    [
-      `Case: ${kase.title}${file?.synthetic ? " (SYNTHETIC voice — pipeline check only)" : ""}`,
-      `File: ${file?.name} (${file?.seconds.toFixed(1)} s)`,
-      `Model: ${model} · Transformers.js ${TJS_VERSION} · device ${device} · dtype ${JSON.stringify(loadInfo?.dtype)} · cross-origin isolated ${loadInfo?.crossOriginIsolated}`,
-      `Load: ${loadInfo ? `${(loadInfo.ms / 1000).toFixed(1)} s (${loadInfo.cached ? "cache" : "download"})` : "—"} · Transcribe: ${result ? `${(result.ms / 1000).toFixed(1)} s, RTF ${(result.ms / 1000 / (file?.seconds ?? 1)).toFixed(2)}` : "—"} · UI max stall ${result?.stallMs ?? "—"} ms`,
-      `Transcript (uncorrected): ${result?.text.trim()}`,
-      `Differences: ${counts.sub} substituted, ${counts.del} omitted, ${counts.ins} added, ${counts.rep} possible repetition words`,
-      `Your verdicts: ${JSON.stringify(verdictCounts)}`,
-      `Timestamps: ${quality ? JSON.stringify(quality) : "segment mode"}`,
-      `Pauses ≥ ${minPause}s: ${pauses.map((p) => `${p.duration.toFixed(2)}s after “${p.after ?? "?"}”`).join("; ") || "none"}`,
-      pace ? `Pace (median ${pace.medianWpm} wpm): ${pace.windows.map((w) => `${w.from}-${Math.round(w.to)}s ${w.wpm}${w.differs ? "*" : ""}`).join(", ")}` : "Pace: not shown (no reliable word timestamps)",
-    ].join("\n");
 
   return (
     <main>
@@ -248,7 +161,7 @@ function Lab() {
         <div className="row">
           <label>
             Model{" "}
-            <select value={model} onChange={(e) => setModel(e.target.value)} disabled={!!busy}>
+            <select value={model} onChange={(e) => store.select({ model: e.target.value })} disabled={!!busy || st.deleting}>
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label} — {m.expectMB}
@@ -258,7 +171,7 @@ function Lab() {
           </label>
           <label>
             Run on{" "}
-            <select value={device} onChange={(e) => setDevice(e.target.value as "wasm" | "webgpu")} disabled={!!busy}>
+            <select value={device} onChange={(e) => store.select({ device: e.target.value as Device })} disabled={!!busy || st.deleting}>
               <option value="wasm">CPU (WASM) — works everywhere WASM does</option>
               <option value="webgpu" disabled={!hasGpu}>
                 GPU (WebGPU){hasGpu ? "" : " — not available in this browser"}
@@ -267,20 +180,25 @@ function Lab() {
           </label>
         </div>
         <div className="row" style={{ marginTop: ".6rem" }}>
-          <button className="primary" onClick={load} disabled={!!busy}>
+          <button className="primary" onClick={() => store.load()} disabled={!!busy || st.deleting || selectionIsLoaded(st)}>
             Load model
           </button>
-          <button onClick={cancel} disabled={!busy}>
+          <button onClick={() => store.cancel()} disabled={!busy}>
             Cancel
           </button>
-          <button onClick={() => void deleteModels()} disabled={!!busy}>
+          <button onClick={() => void store.deleteModels()} disabled={!!busy || st.deleting}>
             Delete downloaded models
           </button>
         </div>
-        <p role="status" style={{ marginBottom: ".3rem" }}>
-          {status}
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Loaded now: <strong>{loaded ? `${loaded.selection.model} on ${loaded.selection.device}` : "nothing"}</strong>
+          {loaded && !selectionIsLoaded(st) && <span className="warn"> — differs from the selection above. Press Load model before transcribing.</span>}
         </p>
-        {progress && busy === "loading" && (
+        <p role="status" style={{ marginBottom: ".3rem" }}>
+          {statusText(st)}
+        </p>
+        {busy && st.notice && <p className="muted">{st.notice}</p>}
+        {progress && busy?.kind === "loading" && (
           <>
             <progress value={progress.loaded} max={progress.total || undefined} />
             <div className="muted">
@@ -288,25 +206,27 @@ function Lab() {
             </div>
           </>
         )}
-        {loadInfo && (
+        {loaded && (
           <div className="kv" style={{ marginTop: ".5rem" }}>
             <span>Library</span>
             <span>Transformers.js {TJS_VERSION} (Apache-2.0)</span>
             <span>Model</span>
             <span>
-              {model} — weights from openai/{model.includes("tiny") ? "whisper-tiny.en" : "whisper-base.en"} (Apache-2.0 on Hugging Face)
+              {loaded.selection.model} — weights from {baseWeights(loaded.selection.model)} (Apache-2.0 on Hugging Face)
             </span>
             <span>Precision</span>
-            <span>{JSON.stringify(loadInfo.dtype)}</span>
+            <span>
+              {JSON.stringify(loaded.info.dtype)} on {loaded.selection.device}
+            </span>
             <span>Load time</span>
             <span>
-              {(loadInfo.ms / 1000).toFixed(1)} s ({loadInfo.cached ? "from browser cache" : "downloaded"}), UI max stall {loadStall} ms
+              {(loaded.info.ms / 1000).toFixed(1)} s ({loaded.info.cached ? "from browser cache" : "downloaded"}), UI max stall {loaded.stallMs} ms
             </span>
             <span>Model files</span>
-            <span>{loadInfo.files ? Object.entries(loadInfo.files).map(([f, b]) => `${f.split("/").pop()} ${mb(b)}`).join(", ") : "—"}</span>
+            <span>{loaded.info.files ? Object.entries(loaded.info.files).map(([f, b]) => `${f.split("/").pop()} ${mb(b)}`).join(", ") : "—"}</span>
             <span>Threads</span>
             <span>
-              {String(loadInfo.threads ?? "default")} · cross-origin isolated: {String(loadInfo.crossOriginIsolated)}
+              {String(loaded.info.threads ?? "default")} · cross-origin isolated: {String(loaded.info.crossOriginIsolated)}
             </span>
           </div>
         )}
@@ -332,7 +252,16 @@ function Lab() {
           </label>
           <label>
             Upload a recording{" "}
-            <input type="file" accept="audio/*" onChange={(e) => e.target.files?.[0] && void loadAudio(e.target.files[0], e.target.files[0].name, false)} />
+            <input
+              type="file"
+              accept="audio/*"
+              disabled={transcribing}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void store.loadAudio(f, f.name, false);
+                e.target.value = ""; // lets the same file be chosen again after Clear
+              }}
+            />
           </label>
         </div>
         {synthAvailable.length > 0 && (
@@ -341,10 +270,11 @@ function Lab() {
             {synthAvailable.map((id) => (
               <button
                 key={id}
+                disabled={transcribing}
                 onClick={async () => {
                   setCaseId(id);
                   const blob = await (await fetch(`/synthetic-audio/${id}.wav`)).blob();
-                  await loadAudio(blob, `synthetic-${id}.wav`, true);
+                  await store.loadAudio(blob, `synthetic-${id}.wav`, true);
                 }}
               >
                 {id}
@@ -369,33 +299,39 @@ function Lab() {
               <option value="segment">Segment-level</option>
             </select>
           </label>
-          <button className="primary" onClick={transcribe} disabled={!!busy || !file || !loadInfo}>
+          <button className="primary" onClick={() => store.transcribe({ tsMode, caseId })} disabled={!canTranscribe(st)}>
             Transcribe
           </button>
-          <button onClick={cancel} disabled={busy !== "transcribing"}>
+          <button onClick={() => store.cancel()} disabled={!transcribing}>
             Cancel
           </button>
-          <button onClick={clearAll}>Clear test data</button>
+          <button onClick={() => store.clearData()}>Clear test data</button>
         </div>
-        {!loadInfo && <p className="muted">Load a model first.</p>}
+        {reason && <p className="muted">{reason}</p>}
       </section>
 
-      {result && file && (
+      {result && (
         <section>
           <h2>4. Results — {kase.title}</h2>
           <div className="kv">
-            <span>Audio</span>
-            <span>{file.seconds.toFixed(1)} s</span>
+            <span>Produced by</span>
+            <span>
+              {result.provenance.model} on {result.provenance.device} · timestamps: {result.provenance.tsMode}
+            </span>
+            <span>Recording</span>
+            <span>
+              {result.provenance.fileName} · {result.provenance.seconds.toFixed(1)} s{result.provenance.synthetic ? " · synthetic voice" : ""}
+            </span>
             <span>Processing</span>
             <span>
-              {(result.ms / 1000).toFixed(1)} s (real-time factor {(result.ms / 1000 / file.seconds).toFixed(2)}) · UI max stall {result.stallMs} ms
+              {(result.ms / 1000).toFixed(1)} s (real-time factor {(result.ms / 1000 / result.provenance.seconds).toFixed(2)}) · UI max stall {result.stallMs} ms
             </span>
           </div>
 
           <h3>Uncorrected transcript</h3>
           <p>{result.text.trim() || <em>(empty)</em>}</p>
 
-          {tsMode === "word" && (
+          {rMode === "word" && (
             <>
               <h3>Word timestamps {quality && !quality.reliable && <span className="warn">— look unreliable</span>}</h3>
               {quality && (
@@ -537,7 +473,15 @@ function Lab() {
             ))}
           </ul>
           <div className="row">
-            <button onClick={() => void navigator.clipboard.writeText(summary())}>Copy result summary</button>
+            <button
+              onClick={() =>
+                void navigator.clipboard.writeText(
+                  buildSummary({ result, caseTitle: kase.title, counts, verdicts: verdictCounts, quality, minPause, pauses, pace, passageWords: passage.trim().split(/\s+/).filter(Boolean).length }),
+                )
+              }
+            >
+              Copy result summary
+            </button>
             <span className="muted">For the testing log. Copies text only — no audio.</span>
           </div>
         </section>

@@ -1,6 +1,6 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { usePwa } from "@/lib/pwa";
+import { shouldOfferUpdate, usePwa } from "@/lib/pwa";
 
 type Pwa = ReturnType<typeof usePwa>;
 function Probe({ onState }: { onState: (s: Pwa) => void }) {
@@ -75,5 +75,26 @@ describe("usePwa", () => {
     });
     expect(get().canInstall).toBe(false);
     expect(get().standalone).toBe(true);
+  });
+});
+
+describe("shouldOfferUpdate — an update is never offered where reloading could lose work", () => {
+  const ready = { updateReady: true, sample: false, hasSession: false, view: "prepare" as const };
+  it("is offered on the welcome screens when there is no session", () => {
+    expect(shouldOfferUpdate(ready)).toBe(true);
+    expect(shouldOfferUpdate({ ...ready, view: "home" })).toBe(true);
+  });
+  it("is not offered when no new version is waiting", () => {
+    expect(shouldOfferUpdate({ ...ready, updateReady: false })).toBe(false);
+  });
+  it("is not offered while any session exists (target, content or recording)", () => {
+    expect(shouldOfferUpdate({ ...ready, hasSession: true })).toBe(false);
+    expect(shouldOfferUpdate({ ...ready, hasSession: true, view: "home" })).toBe(false);
+  });
+  it("is not offered while reading, reviewing or looking at sample feedback — even with no session flag", () => {
+    for (const view of ["read", "review", "samples"] as const) expect(shouldOfferUpdate({ ...ready, view })).toBe(false);
+  });
+  it("is not offered inside the sample walkthrough", () => {
+    expect(shouldOfferUpdate({ ...ready, sample: true })).toBe(false);
   });
 });

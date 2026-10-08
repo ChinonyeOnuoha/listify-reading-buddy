@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Eye, Search } from
 import { SAMPLE_EXAMPLES, SAMPLE_PASSAGE, STATUS_LABEL, type SampleStatus } from "@/lib/sample-feedback";
 
 const STATUS_STYLE: Record<SampleStatus, { Icon: typeof Eye; cls: string }> = {
-  difference: { Icon: Search, cls: "border-border bg-peach" },
+  difference: { Icon: Search, cls: "border-border bg-apricot-tint" },
   review: { Icon: Eye, cls: "border-border bg-tint" },
   clear: { Icon: CheckCircle2, cls: "border-primary/50 bg-card" },
   unsure: { Icon: CircleHelp, cls: "border-dashed border-line bg-card" },
@@ -23,12 +23,12 @@ export function SampleFeedback({ hidePassage }: Props) {
 
   return (
     <section className="card reveal" aria-labelledby="sample-h">
-      <span className="rounded-md bg-peach px-2.5 py-1 text-xs font-semibold tracking-wider text-foreground uppercase">
+      <span className="rounded-md bg-apricot-tint px-2.5 py-1 text-xs font-semibold tracking-wider text-foreground uppercase">
         Sample feedback
       </span>
       <h2 id="sample-h" className="mt-4 text-xl font-medium">What feedback could look like</h2>
       <p className="mt-1 text-muted-foreground">
-        Made-up examples on a sample passage. This is not an analysis of your recording 💛
+        Illustrative examples on a sample passage. This is not an analysis of your recording 💛
       </p>
 
       {!hidePassage && (

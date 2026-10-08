@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Check } from "lucide-react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { ArrowRight, Check } from "lucide-react";
+import { CompanionPerch } from "./Companion";
 
 const PRESETS = [5, 10, 15] as const;
 const MAX = 180;
@@ -69,15 +70,16 @@ export function TargetCard({ target, onSet }: Props) {
     onSet(n);
   };
 
-  const choice = (label: string, pressed: boolean, onClick: () => void) => (
+  const choice = (key: string, label: string, pressed: boolean, onClick: () => void, children: ReactNode) => (
     <button
-      key={label}
+      key={key}
       type="button"
       aria-pressed={pressed}
+      aria-label={label}
       onClick={onClick}
-      className="tile relative min-h-14 items-center justify-center px-3 py-3 text-center font-medium"
+      className="tile relative min-h-[4.5rem] flex-col items-center justify-center gap-0.5 px-3 py-3 text-center"
     >
-      {label}
+      {children}
       {pressed && (
         <span className="absolute top-2 right-2 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="size-3" strokeWidth={3} aria-hidden />
@@ -87,13 +89,38 @@ export function TargetCard({ target, onSet }: Props) {
   );
 
   return (
+    <CompanionPerch pose="wave" animate>
     <section className="card" aria-labelledby="target-h">
-      <h2 id="target-h" className="text-xl font-medium">Today's reading target</h2>
+      <h2 id="target-h" className="text-xl font-semibold">Today's reading target</h2>
       <p className="mt-1 text-muted-foreground">How much time would you like to read today?</p>
 
-      <div role="group" aria-labelledby="target-h" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        {PRESETS.map((m) => choice(`${m} min`, false, () => onSet(m)))}
-        {choice("Custom", custom, () => setCustom(true))}
+      <div role="group" aria-labelledby="target-h" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {PRESETS.map((m) =>
+          choice(
+            String(m),
+            `${m} min`,
+            false,
+            () => onSet(m),
+            <>
+              <span className="text-[1.625rem] leading-none font-semibold text-heading" aria-hidden>
+                {m}
+              </span>
+              <span className="text-sm text-muted-foreground" aria-hidden>
+                min
+              </span>
+            </>,
+          ),
+        )}
+        {choice(
+          "custom",
+          "Custom",
+          custom,
+          () => setCustom(true),
+          <>
+            <span className="font-semibold text-heading">Custom</span>
+            <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
+          </>,
+        )}
       </div>
 
       {custom && (
@@ -130,5 +157,6 @@ export function TargetCard({ target, onSet }: Props) {
         </form>
       )}
     </section>
+    </CompanionPerch>
   );
 }

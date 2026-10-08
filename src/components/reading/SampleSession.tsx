@@ -20,8 +20,8 @@ export function SampleSession({ stage, setStage, onStartMine }: Props) {
   if (stage === "read") {
     return (
       <>
-        <header className="text-center">
-          <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">A sample reading</h1>
+        <header className="text-left sm:text-center">
+          <h1 className="display-serif text-[1.875rem] text-balance sm:text-[2.375rem]">A sample reading</h1>
           <p className="mx-auto mt-2 max-w-xl text-muted-foreground">
             Here's how the reading view looks. Nothing is recorded and no microphone is needed.
           </p>
@@ -51,8 +51,8 @@ export function SampleSession({ stage, setStage, onStartMine }: Props) {
   if (stage === "review") {
     return (
       <>
-        <header className="text-center">
-          <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">Sample review</h1>
+        <header className="text-left sm:text-center">
+          <h1 className="display-serif text-[1.875rem] text-balance sm:text-[2.375rem]">Sample review</h1>
           <p className="mt-2 text-muted-foreground">After a real reading, this is where you listen back.</p>
         </header>
         <section className="card" aria-labelledby="sample-audio-h">
@@ -76,9 +76,9 @@ export function SampleSession({ stage, setStage, onStartMine }: Props) {
 
   return (
     <>
-      <header className="text-center">
-        <h1 className="text-[1.75rem] font-semibold sm:text-[2.125rem]">Sample feedback</h1>
-        <p className="mt-2 text-muted-foreground">Made-up examples to show the kind of observations Reading Buddy could offer.</p>
+      <header className="text-left sm:text-center">
+        <h1 className="display-serif text-[1.875rem] text-balance sm:text-[2.375rem]">Sample feedback</h1>
+        <p className="mt-2 text-muted-foreground">Illustrative examples to show the kind of observations Reading Buddy could offer.</p>
       </header>
       <SampleFeedback />
       <section className="card text-center" aria-labelledby="finish-h">
