@@ -84,8 +84,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Reading Buddy" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { title: "Reading Buddy" },
-      { name: "description", content: "A warm companion for reading aloud." },
+      { title: "Reading Buddy — a reading-practice prototype" },
+      { name: "description", content: "A reading-practice prototype: set a reading target, bring a passage, record yourself reading aloud and listen back. AI feedback and text extraction are not connected yet." },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },

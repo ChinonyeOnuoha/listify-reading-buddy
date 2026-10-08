@@ -163,7 +163,7 @@ export function PrepareStep(p: Props) {
   return (
     <section ref={cardRef} id="content-card" className="card relative mt-4 scroll-mt-4" aria-labelledby="content-h">
       {/* Peeks over the card's top-right corner, in the gap above it: never over the heading, text or controls. */}
-      <Companion pose="peek" className="pointer-events-none absolute right-6 bottom-[calc(100%-1px)] h-auto w-12" />
+      <Companion pose="peek" interactive className="absolute right-6 bottom-[calc(100%-1px)] w-12" />
       <div className="flex items-start justify-between gap-x-4 gap-y-1">
         <h2 id="content-h" tabIndex={-1} className="text-xl font-medium outline-none">
           {title}

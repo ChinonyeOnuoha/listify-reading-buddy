@@ -18,14 +18,14 @@ import { shouldOfferUpdate, usePwa } from "@/lib/pwa";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Reading Buddy — read aloud, kindly" },
+      { title: "Reading Buddy — a reading-practice prototype" },
       {
         name: "description",
         content:
-          "Make a little time to read aloud: bring a passage, record yourself reading, then listen back.",
+          "A reading-practice prototype: set a reading target, bring a passage, record yourself reading aloud and listen back. AI feedback and text extraction are not connected yet.",
       },
-      { property: "og:title", content: "Reading Buddy" },
-      { property: "og:description", content: "A warm companion for making time to read aloud." },
+      { property: "og:title", content: "Reading Buddy — a reading-practice prototype" },
+      { property: "og:description", content: "A prototype for practising reading aloud: record yourself and listen back. AI feedback is not connected yet." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

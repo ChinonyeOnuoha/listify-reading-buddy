@@ -1,12 +1,20 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 export type CompanionPose = "wave" | "peek" | "listen" | "celebrate";
 
-type Props = {
+type ArtProps = {
   pose: CompanionPose;
   className?: string;
   /** Waves twice on appearing (wave pose only). Does nothing for reduced-motion users. */
   animate?: boolean;
+};
+
+type Props = ArtProps & {
+  /**
+   * Makes this instance a real button that answers a hover or a tap with one short movement. Leave it off wherever the
+   * companion must stay still and out of the way (reading, recording, audio playback).
+   */
+  interactive?: boolean;
 };
 
 const INK = "var(--ink)";
@@ -18,7 +26,7 @@ const DEEP = "var(--apricot-deep)";
  * One drawing, four poses. Decorative only — hidden from assistive tech, never focusable, no text of its own.
  * Drawn for this app (no external asset), so there is nothing to download and nothing that can fail to load.
  */
-export function Companion({ pose, className = "", animate = false }: Props) {
+function CompanionArt({ pose, className = "", animate = false }: ArtProps) {
   // "peek" shows only the top of the ribbon and both hands; the others show the whole figure.
   const viewBox = pose === "peek" ? "0 0 100 64" : "0 0 100 116";
   const stroke = {
@@ -133,6 +141,82 @@ export function Companion({ pose, className = "", animate = false }: Props) {
   );
 }
 
+type Reaction = "wave" | "wiggle";
+
+/** Longest a reaction can run, in ms; clears the busy flag if the browser never reports the animation ending. */
+const REACTION_MS = 1600;
+/** Arrival wave (two cycles after a short delay) — taps and hovers during it are ignored, never queued. */
+const ARRIVAL_MS = 2800;
+
+/** The CSS animations a reaction can run (see styles.css). */
+const REACTION_ANIMATIONS = new Set(["companion-wiggle", "companion-wave-hover", "companion-tilt"]);
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * The companion, optionally interactive. Interactive instances are a button named "Say hello to your buddy" around the
+ * decorative drawing (which stays hidden from assistive tech). A mouse hovering over it gives one brief wave; a click, tap,
+ * Enter or Space gives one brief wiggle. At most one reaction runs at a time and extra input while it runs is dropped, so
+ * nothing queues. Reactions are CSS transforms only (no layout change, no sound) and are switched off for
+ * reduced-motion users. There is no visible border; keyboard focus shows the app's normal focus ring.
+ */
+export function Companion({ interactive = false, ...art }: Props) {
+  const [reacting, setReacting] = useState<Reaction | null>(null);
+  const busy = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // The arrival wave plays once. Its class is dropped afterwards, otherwise it would start again whenever a reaction (which
+  // overrides it) ends. Taps and hovers are ignored while it plays.
+  const [arriving, setArriving] = useState(!!art.animate);
+  useEffect(() => {
+    if (!art.animate) return;
+    if (interactive && !prefersReducedMotion()) busy.current = true;
+    const t = setTimeout(() => {
+      busy.current = false;
+      setArriving(false);
+    }, ARRIVAL_MS);
+    return () => clearTimeout(t);
+  }, [interactive, art.animate]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const finish = useCallback(() => {
+    clearTimeout(timer.current);
+    busy.current = false;
+    setReacting(null);
+  }, []);
+
+  const react = (kind: Reaction) => {
+    if (busy.current || prefersReducedMotion()) return;
+    busy.current = true;
+    setReacting(kind);
+    timer.current = setTimeout(finish, REACTION_MS);
+  };
+
+  if (!interactive) return <CompanionArt {...art} animate={arriving} />;
+
+  const { className = "", ...rest } = art;
+  return (
+    <button
+      type="button"
+      aria-label="Say hello to your buddy"
+      className={`companion-btn ${className}`}
+      data-pose={art.pose}
+      {...(reacting ? { "data-reacting": reacting } : {})}
+      // A mouse hover waves; touch and pen don't (a touch also fires pointerenter, which would wave on every scroll-touch).
+      onPointerEnter={(e: PointerEvent<HTMLButtonElement>) => e.pointerType === "mouse" && react("wave")}
+      onClick={() => react("wiggle")}
+      onAnimationEnd={(e) => {
+        // The arrival wave ends here too; only one of the reaction animations may clear a running reaction.
+        if (reacting && REACTION_ANIMATIONS.has(e.animationName ?? "")) finish();
+      }}
+    >
+      <CompanionArt {...rest} animate={arriving} className="pointer-events-none block h-auto w-full" />
+    </button>
+  );
+}
+
 /**
  * Seats a companion beside a card without covering anything: on narrow screens it stands on the card's top-right edge (the
  * extra top margin keeps it clear of the heading above); on wide screens it sits in the side margin next to the card.
@@ -150,8 +234,9 @@ export function CompanionPerch({
     <div className="relative mt-12 lg:mt-0">
       <Companion
         pose={pose}
+        interactive
         {...(animate ? { animate } : {})}
-        className="pointer-events-none absolute right-6 bottom-[calc(100%-4px)] h-auto w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
+        className="absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
       />
       {children}
     </div>

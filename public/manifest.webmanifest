@@ -1,7 +1,7 @@
 {
   "name": "Reading Buddy",
   "short_name": "Reading Buddy",
-  "description": "Make a little time to read aloud: bring a passage, record yourself reading, then listen back.",
+  "description": "A reading-practice prototype: record yourself reading aloud and listen back. AI feedback is not connected yet.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

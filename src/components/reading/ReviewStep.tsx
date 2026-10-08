@@ -20,6 +20,8 @@ type Props = {
 export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onExploreSamples, startAt, onPosition }: Props) {
   const [confirm, setConfirm] = useState<null | "discard" | "new">(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  // The companion stays still, and isn't a button, while the recording plays.
+  const [playing, setPlaying] = useState(false);
 
   // Pause when leaving. (The position is reported continuously below, not read here: a remount-time read would
   // capture 0 before the restored position is applied.)
@@ -32,7 +34,11 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onEx
     <>
       {/* Phones: left-aligned with the content edge. Desktop: centred. The right edge is kept free for the companion. */}
       <header className="relative pr-16 text-left sm:pr-0 sm:text-center">
-        <Companion pose="celebrate" className="pointer-events-none absolute top-0 right-0 h-auto w-12 sm:w-14" />
+        <Companion
+          pose="celebrate"
+          interactive={!playing}
+          className={`absolute top-0 right-0 w-12 sm:w-14 ${playing ? "pointer-events-none h-auto" : ""}`}
+        />
         <h1 id="review-h" tabIndex={-1} className="display-serif text-[1.875rem] text-balance outline-none sm:text-[2.375rem]">
           Reading done 🙌🏾 Have a <em>listen back</em>.
         </h1>
@@ -67,7 +73,12 @@ export function ReviewStep({ take, target, onBack, onDiscard, onNewSession, onEx
               }}
               onTimeUpdate={(e) => onPosition(e.currentTarget.currentTime)}
               onSeeked={(e) => onPosition(e.currentTarget.currentTime)}
-              onPause={(e) => onPosition(e.currentTarget.currentTime)}
+              onPlay={() => setPlaying(true)}
+              onPause={(e) => {
+                setPlaying(false);
+                onPosition(e.currentTarget.currentTime);
+              }}
+              onEnded={() => setPlaying(false)}
             />
           </>
         ) : (

@@ -37,9 +37,9 @@ Everything is cached by the browser (Cache API, `transformers-cache`) after the 
 
 ## Safeguards built in
 - The passage is never passed to the model (no prompt, no "initial text"), so it can't nudge the transcript towards the expected words.
-- Differences are labelled as things to **check by listening**, never as mistakes; your verdict separates recognition errors from genuine reading differences.
-- Pauses come from the audio (20 ms energy frames, threshold 10 dB above the noise floor). Detecting a silence says nothing about whether a pause is misplaced.
-- Pace is only shown from word timestamps that pass basic checks (none missing, <10% zero-length/out-of-order/over-long). It is never inferred from an untimed transcript, and no causes are suggested.
+- Differences are labelled as things to **check by listening**, never as mistakes; your verdict separates recognition errors from genuine reading differences. A count of differences against the written passage is a **passage-difference rate**, not an ASR word error rate (that needs a verified transcript of what was actually spoken).
+- Pauses are **estimated** from the audio (20 ms energy frames, threshold 10 dB above the noise floor). These estimates have **not** been validated against what a listener hears, and detecting a silence says nothing about whether a pause is misplaced.
+- Pace is only shown from word timestamps that pass basic structural checks (none missing, <10% zero-length/out-of-order/over-long). Passing those checks shows the numbers are well-formed, not that they are accurate (in the cases examined, timestamps near pauses ran about one word late). It is never inferred from an untimed transcript, and no causes are suggested.
 - Spelling variants (neighbours/neighbors, -ise/-ize) and joined/split compounds (post box/postbox) are not counted as differences.
 
 ## Limitations — read before drawing conclusions
@@ -50,4 +50,4 @@ Everything is cached by the browser (Cache API, `transformers-cache`) after the 
 - **Personal recordings and private test material are not committed.** Audio files are git-ignored (`*.m4a`, `*.wav`, `*.webm`, `lab/synthetic-audio/`); only text results written into `TESTING_LOG.md` are kept.
 
 ## Results so far
-See `../TESTING_LOG.md` (2026-10-07, "AI feasibility lab") for the measured runs, what was synthetic, and what still needs real recordings.
+See [`../docs/ai-feasibility.md`](../docs/ai-feasibility.md) for the concise summary and [`../TESTING_LOG.md`](../TESTING_LOG.md) for the testing record. Detailed earlier working notes were condensed on 2026-10-08 and remain in Git history.

@@ -420,9 +420,9 @@ function Lab() {
             </>
           )}
 
-          <h3>Pauses measured from the audio</h3>
+          <h3>Pauses estimated from the audio</h3>
           <p className="muted">
-            Silence detection finds gaps in sound. It can't tell whether a pause is misplaced — natural pauses between sentences are normal.{" "}
+            Silence detection finds gaps in sound. It can't tell whether a pause is misplaced — natural pauses between sentences are normal. These estimates haven't been checked against what a listener hears.{" "}
             {pauseInfo && !pauseInfo.speech && <span className="warn">Little speech-like variation detected: this may be silence or steady noise.</span>}
           </p>
           <label className="muted">
