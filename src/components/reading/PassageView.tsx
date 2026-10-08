@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PageViewer } from "./PageViewer";
 import type { PageImage } from "./PrepareStep";
 
 type Props = { text?: string | undefined; images?: PageImage[] | undefined };
@@ -16,11 +17,10 @@ export function PassageView({ text, images }: Props) {
 
   return (
     <div>
-      <div className="flex h-[70vh] max-h-[52rem] min-h-80 items-center justify-center rounded-2xl border border-border bg-white p-2">
-        <img src={img.url} alt={`Page ${current + 1} of ${total}`} className="h-full w-full object-contain" />
-      </div>
+      {/* A new page always starts fitted: the key remounts the viewer, so no pan or zoom is inherited. */}
+      <PageViewer key={img.id} src={img.url} alt={`Page ${current + 1} of ${total}`} />
       {total > 1 && (
-        <nav aria-label="Pages" className="mt-3 flex items-center justify-between gap-4">
+        <nav aria-label="Pages" className="mt-1 flex items-center justify-between gap-4">
           {/* Narrow screens: compact 44px arrow buttons; wider screens show the words too. */}
           <button
             className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-ml-3 sm:px-3"

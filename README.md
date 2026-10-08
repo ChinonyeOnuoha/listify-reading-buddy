@@ -6,7 +6,7 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 
 ## What works today
 - **Guided session:** set a reading target (5, 10, 15 minutes or your own), then paste text or upload photos or screenshots of pages. Each step appears only when it is needed.
-- **Pages:** upload several pages, reorder, replace or remove them from a per-page menu, and read them one at a time.
+- **Pages:** upload several pages, reorder, replace or remove them from a per-page menu, and read them one at a time. While reading, **zoom and pan each page on its own** (buttons, pinch, drag, keyboard) without enlarging the recording controls.
 - **Recording:** record with the microphone, **pause and resume** (paused time doesn't count), **listen so far** while paused, finish, or upload an audio file instead. Time against your target is tracked, and reaching the target never cuts you off.
 - **Playback:** listen back on the review screen; re-record or start a new session (each asks first).
 - **Sessions:** the logo returns home and **Resume session** brings you back; **Exit session** is the only way to discard everything.
