@@ -91,7 +91,7 @@ Reading Buddy can be installed as an app on browsers that support it.
 - No servers, paid services or AI providers are used. Passage text, photos and recordings stay in the current browser tab (the only outside request is the Google Fonts stylesheet).
 
 ## AI feasibility lab (development only)
-`npm run lab` opens a separate test screen (http://localhost:5174) for checking whether free, on-device speech recognition (Whisper via Transformers.js) and OCR (Tesseract.js) could support Reading Buddy. It lives in `lab/`, has its own dev server and is never part of the production build. The public app and its sample feedback are unchanged and no AI is connected to them. See `lab/README.md` and `lab/RECORDING_SCRIPT.md`.
+`npm run lab` opens a separate test screen for checking whether free, on-device speech recognition (Whisper via Transformers.js) and OCR (Tesseract.js) could support Reading Buddy. It lives in `lab/`, has its own dev server and is never part of the production build. The public app and its sample feedback are unchanged and no AI is connected to them. See `lab/README.md` and `lab/RECORDING_SCRIPT.md`.
 
 ## Run it
 ```bash
