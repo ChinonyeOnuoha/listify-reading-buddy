@@ -2,7 +2,8 @@
 
 The visual language of the app: ink blue, warm ivory and apricot, with a small bookmark companion. Tokens live in `src/styles.css`; contrast is asserted by `src/test/contrast.test.ts`. Layout and behaviour are described in [user-flow.md](user-flow.md).
 
-Direction: **ink blue, warm ivory and apricot**, with a small bookmark companion. This is a refinement of the existing screens, not a rebuild; layout, flow and behaviour are unchanged.
+Direction: **ink blue, warm ivory and apricot**, with a small bookmark companion. 
+
 - **Tokens** (all in `src/styles.css`, solid colours only): page `#F6F2E8`; cards `#FDFAF4` (slightly lighter); ink `#0B2560` (primary actions, links, logo, selected borders, focus ring); headings `#07194A`; body text and labels `#1E2B4A`; supporting text `#4A5B78`; control edges `#76829A`; hover/selected tint `#EEEDEB`; apricot `#FCBC88` (companion and restrained decoration only), apricot tint `#FDE8D3` (quiet chips behind ink text), deeper apricot `#E58A45` (companion details and a few contour lines only). The values were sampled from the approved reference image (which is compressed, so they are approximations) and then adjusted where the sampled link blue was too bright and the sampled greys were too weak for AA. Apricot is never used for text.
 - **Measured contrast (WCAG 2.x), computed from the tokens and asserted by `src/test/contrast.test.ts`:**
 
