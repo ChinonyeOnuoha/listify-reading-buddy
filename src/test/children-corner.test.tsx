@@ -140,19 +140,23 @@ describe("welcome screen doorway", () => {
     expect(screen.queryByText(/for younger readers/i)).toBeNull();
   });
 
-  it("puts the sample link inside the target card (wide screens) and keeps a copy below the doorway (phones)", async () => {
+  it("puts the sample link inside the target card, beneath the choices, once, at every width", async () => {
     renderApp();
     await screen.findByRole("heading", { name: /read aloud/i });
     const card = screen.getByText("Today's reading target").closest("section")!;
     const inside = within(card).getByRole("button", { name: "Try a sample session" });
-    expect(inside.closest("p")!.className).toContain("hidden"); // shown from the lg breakpoint up
-    expect(inside.closest("p")!.className).toContain("lg:block");
-    const all = screen.getAllByRole("button", { name: "Try a sample session" });
-    expect(all).toHaveLength(2);
-    const outside = all.find((b) => b !== inside)!;
-    expect(outside.closest("p")!.className).toContain("lg:hidden"); // phones keep the earlier arrangement
+    // always visible (no breakpoint hides it), after the target choices, and text-styled: no button background or border
+    expect(inside.closest("p")!.className).not.toMatch(/hidden|lg:/);
+    expect(inside.className).not.toMatch(/btn-|border|bg-/);
+    expect(inside.className).toContain("text-link");
+    const choices = within(card).getByRole("button", { name: "10 min" });
+    expect(choices.compareDocumentPosition(inside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // the only copy: nothing is left beneath the doorway
+    expect(screen.getAllByRole("button", { name: "Try a sample session" })).toHaveLength(1);
     // the doorway sits below and outside the card
-    expect(card.contains(btn(/step inside/i))).toBe(false);
+    const door = btn(/step inside/i);
+    expect(card.contains(door)).toBe(false);
+    expect(card.compareDocumentPosition(door) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("clicking the title, the subtitle, the picture or Step inside all enter the corner, with no target", async () => {
@@ -507,6 +511,16 @@ describe("listening back", () => {
     expect(feeling("Easy").getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("marks the chosen feeling with a checkmark as well as the darker border", async () => {
+    await toReview();
+    expect(feeling("A bit hard").querySelector("svg")).toBeNull();
+    fireEvent.click(feeling("A bit hard"));
+    fireEvent.keyDown(await screen.findByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(feeling("A bit hard").querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    expect(feeling("Easy").querySelector("svg")).toBeNull();
+  });
+
   it("opening a response pauses the player and nothing resumes it", async () => {
     await toReview();
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
@@ -790,7 +804,7 @@ describe("adult and children's sessions stay separate", () => {
     fireEvent.click(within(d).getByRole("button", { name: "Leave and discard" }));
     await screen.findByRole("button", { name: "10 min" }); // fresh adult welcome
 
-    click(/step inside/i); // the children's session is still there, exactly where it was left
+    click(/back to your story/i); // the children's session is still there, exactly where it was left
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
   });
 
@@ -832,7 +846,7 @@ describe("leaving mid-recording and browser Back", () => {
     click("Reading Buddy home");
     fireEvent.click(await screen.findByRole("button", { name: "Finish and go home" }));
     await screen.findByRole("heading", { name: /read aloud/i });
-    click(/step inside/i);
+    click(/back to your story/i);
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
     expect(document.querySelector("audio")!.hasAttribute("autoplay")).toBe(false);
   });
@@ -881,5 +895,223 @@ describe("the main (adult) flow still works", () => {
     expect(await screen.findByText("Maya found a tiny seed beside the garden gate.")).toBeTruthy();
     expect(dock().textContent).toMatch(/\/ 5 min/);
     expect(screen.getByRole("button", { name: /edit passage/i })).toBeTruthy();
+  });
+});
+
+describe("a retained children's session on the welcome screen", () => {
+  const door = () => btn(/step inside|back to your story|continue your reading/i);
+  const home = async () => {
+    click("Reading Buddy home");
+    await screen.findByRole("heading", { name: /read aloud/i });
+  };
+  const nextPage = async (n: number) => {
+    await screen.findByText(/^Page 1 of/);
+    for (let i = 0; i < n; i++) fireEvent.click(btn("Next page"));
+  };
+
+  it("browsing the catalogue alone never makes an unfinished-session indicator", async () => {
+    renderApp();
+    await enter();
+    fireEvent.click(screen.getByRole("tab", { name: "Bring your own" })); // looking, choosing nothing
+    fireEvent.click(screen.getByRole("tab", { name: "Pick a story" }));
+    fireEvent.click(screen.getByRole("button", { name: /Folktales/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ })); // opens and closes a preview
+    fireEvent.keyDown(await screen.findByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("button", { name: "Exit session" })).toBeNull();
+    await home();
+    expect(door().textContent).toMatch(/A doorway to stories/);
+    expect(door().textContent).toMatch(/Step inside/);
+    expect(screen.queryByText(/back to your story/i)).toBeNull();
+  });
+
+  it("shows the chosen story and Continue; it is still one control and returns to the page that was being read", async () => {
+    renderApp();
+    await enter();
+    await openStory(/Lazy Anansi/);
+    await nextPage(2);
+    expect(screen.getByText("Page 3 of 8")).toBeTruthy();
+    await home();
+
+    const d = door();
+    expect(d.tagName).toBe("BUTTON");
+    expect(within(d).getByText("Back to your story")).toBeTruthy();
+    expect(within(d).getByText("Lazy Anansi")).toBeTruthy();
+    expect(within(d).getByText("Continue")).toBeTruthy();
+    expect(d.textContent).not.toMatch(/doorway to stories|Step inside/);
+    expect(d.querySelectorAll("button, a, input, [tabindex]")).toHaveLength(0);
+    expect(d.querySelector("svg[aria-hidden='true']")).not.toBeNull(); // the picture is part of the same control
+    expect(screen.getAllByRole("button", { name: /back to your story/i })).toHaveLength(1);
+    // still quiet text: no pill, border or fill, and no permanent underline
+    expect(within(d).getByText("Continue").className).not.toMatch(
+      /btn-|border|bg-|underline|rounded-full/,
+    );
+    // the accessible name says which corner it belongs to
+    expect(d.textContent).toMatch(/children’s reading corner/);
+
+    fireEvent.click(d.querySelector("svg")!); // clicking the picture continues too
+    expect(await screen.findByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
+    expect(screen.getByText("Page 3 of 8")).toBeTruthy(); // the same page, not a new session
+    expect(within(dock()).getByRole("button", { name: /start recording/i })).toBeTruthy(); // nothing started
+  });
+});
+
+describe("continuing a retained children's session", () => {
+  const door = () => btn(/step inside|back to your story|continue your reading/i);
+  const home = async () => {
+    click("Reading Buddy home");
+    await screen.findByRole("heading", { name: /read aloud/i });
+  };
+  const toReview = async () => {
+    renderApp();
+    await enter();
+    await openStory(/Lazy Anansi/);
+    fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
+    fireEvent.click(await within(dock()).findByRole("button", { name: /finish recording/i }));
+    await screen.findByRole("heading", { name: "You made time to read." });
+  };
+
+  it("brings back the review, the recording and the reflection — nothing restarts or plays", async () => {
+    await toReview();
+    const before = document.querySelector("audio")!.getAttribute("src");
+    fireEvent.click(screen.getByRole("button", { name: /A bit hard/, hidden: true }));
+    fireEvent.keyDown(await screen.findByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await home();
+    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy();
+
+    click(/back to your story/i);
+    expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
+    expect(document.querySelector("audio")!.getAttribute("src")).toBe(before); // the same recording
+    expect(document.querySelector("audio")!.hasAttribute("autoplay")).toBe(false);
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: /A bit hard/, hidden: true }).getAttribute("aria-pressed"),
+    ).toBe("true"); // the reflection came back too
+    expect(screen.queryByRole("button", { name: /start recording/i })).toBeNull();
+  });
+
+  it("returning home mid-recording still asks first; cancelling keeps recording; confirming keeps the audio", async () => {
+    renderApp();
+    await enter();
+    await openStory(/Lazy Anansi/);
+    fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
+    await within(dock()).findByRole("button", { name: /finish recording/i });
+    click("Reading Buddy home");
+    const d = await screen.findByRole("alertdialog");
+    fireEvent.click(within(d).getByRole("button", { name: "Keep recording" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(within(dock()).getByRole("status").textContent).toMatch(/Recording/);
+    click("Reading Buddy home");
+    fireEvent.click(await screen.findByRole("button", { name: "Finish and go home" }));
+    await screen.findByRole("heading", { name: /read aloud/i });
+    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy();
+    click(/back to your story/i);
+    expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+
+  it("uses 'Your own story' for the child's own content", async () => {
+    renderApp();
+    await enter();
+    fireEvent.click(screen.getByRole("tab", { name: "Bring your own" }));
+    fireEvent.click(btn(/Paste text/));
+    const box = await screen.findByLabelText("Your passage");
+    fireEvent.change(box, { target: { value: "A short passage I love to read." } });
+    fireEvent.blur(box);
+    click(/continue to reading/i);
+    await screen.findAllByRole("button", { name: /start recording/i });
+    await home();
+    expect(within(door()).getByText("Back to your story")).toBeTruthy();
+    expect(within(door()).getByText("Your own story")).toBeTruthy();
+    click(/back to your story/i);
+    await screen.findAllByRole("button", { name: /start recording/i });
+    expect(screen.getByText("A short passage I love to read.")).toBeTruthy();
+  });
+
+  it("while pages are still being prepared it says so, and Continue returns to them", async () => {
+    renderApp();
+    await enter();
+    fireEvent.click(screen.getByRole("tab", { name: "Bring your own" }));
+    fireEvent.click(btn(/Paste text/));
+    const box = await screen.findByLabelText("Your passage");
+    fireEvent.change(box, { target: { value: "Half a story I have not started yet." } });
+    await home();
+    expect(within(door()).getByText("Continue your reading")).toBeTruthy();
+    expect(within(door()).getByText("Your pages are waiting")).toBeTruthy();
+    expect(within(door()).getByText("Continue")).toBeTruthy();
+    click(/continue your reading/i);
+    await screen.findByRole("heading", { name: "Bring a story you love." });
+    expect((screen.getByLabelText("Your passage") as HTMLTextAreaElement).value).toBe(
+      "Half a story I have not started yet.",
+    );
+  });
+
+  it("an explicit discard brings back the plain doorway", async () => {
+    renderApp();
+    await enter();
+    await openStory(/Lazy Anansi/);
+    click("Exit session");
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Leave and discard",
+      }),
+    );
+    await screen.findByRole("heading", { name: /where shall we go today/i });
+    await home();
+    expect(door().textContent).toMatch(/A doorway to stories/);
+    expect(door().textContent).toMatch(/A reading corner for children/);
+    expect(door().textContent).toMatch(/Step inside/);
+  });
+
+  it("both sessions coexist, each with its own clearly different resume control, and neither loses anything", async () => {
+    renderApp();
+    await screen.findByRole("heading", { name: /read aloud/i });
+    fireEvent.click(screen.getByRole("button", { name: "10 min" }));
+    await screen.findByLabelText("Today's target");
+    fireEvent.click(await screen.findByRole("button", { name: /Paste t/ }));
+    const box = await screen.findByLabelText("Your passage");
+    fireEvent.change(box, { target: { value: "Maya found a tiny seed." } });
+    fireEvent.blur(box);
+    click(/continue to reading/i);
+    await screen.findAllByRole("button", { name: /start recording/i });
+    // into the corner, choose a story, read a page or two
+    click("Reading Buddy home");
+    await screen.findByRole("button", { name: /resume session/i });
+    click(/step inside/i);
+    await screen.findByRole("heading", { name: /where shall we go today/i });
+    await openStory(/Lazy Anansi/);
+    click("Reading Buddy home");
+    await screen.findByRole("heading", { name: /read aloud/i });
+
+    // two different, both visible controls
+    const resume = screen.getByRole("button", { name: /resume session/i });
+    const doorway = btn(/back to your story/i);
+    expect(resume).not.toBe(doorway);
+    expect(screen.getByText("Your session is waiting")).toBeTruthy();
+    expect(within(doorway).getByText("Lazy Anansi")).toBeTruthy();
+    expect(doorway.textContent).toMatch(/children’s reading corner/);
+    expect(resume.textContent).not.toMatch(/children|Lazy Anansi/);
+
+    click(/resume session/i); // the adult session is intact
+    await screen.findAllByRole("button", { name: /start recording/i });
+    expect(screen.getByText("Maya found a tiny seed.")).toBeTruthy();
+    click("Reading Buddy home");
+    await screen.findByRole("heading", { name: /read aloud/i });
+    click(/back to your story/i); // and so is the children's
+    expect(await screen.findByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
+  });
+
+  it("the sample session keeps both personal sessions and returns to the same welcome screen", async () => {
+    await toReview();
+    await home();
+    expect(screen.getAllByRole("button", { name: "Try a sample session" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Try a sample session" }));
+    await screen.findByText("Sample session");
+    click("Exit sample");
+    await screen.findByRole("heading", { name: /read aloud/i });
+    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy(); // the children's session is untouched
+    click(/back to your story/i);
+    expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
   });
 });

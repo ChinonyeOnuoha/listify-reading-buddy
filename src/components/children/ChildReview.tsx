@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 import { Companion } from "@/components/reading/Companion";
 import { ConfirmInline } from "@/components/reading/ConfirmInline";
 import { formatTime } from "@/components/reading/useRecorder";
@@ -245,12 +245,18 @@ export function ChildReview({ s, onDone }: Props) {
               aria-pressed={s.reflection === id}
               aria-haspopup="dialog"
               onClick={() => choose(id)}
-              className="tile min-h-14 items-center gap-3 px-4 py-3 sm:flex-col sm:justify-center sm:gap-1.5 sm:text-center"
+              className="tile relative min-h-14 items-center gap-3 px-4 py-3 sm:flex-col sm:justify-center sm:gap-1.5 sm:text-center"
             >
               <span aria-hidden className="text-[1.75rem] leading-none">
                 {emoji}
               </span>
               <span className="font-medium">{label}</span>
+              {/* A checkmark as well as the darker border: the chosen feeling is never shown by colour alone. */}
+              {s.reflection === id && (
+                <span className="absolute top-2 right-2 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Check className="size-3" strokeWidth={3} aria-hidden />
+                </span>
+              )}
             </button>
           ))}
         </div>

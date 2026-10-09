@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Lock, LogOut } from "lucide-react";
 import { ChildrenCorner } from "@/components/children/ChildrenCorner";
-import { DoorwayInvite } from "@/components/children/DoorwayInvite";
+import { DoorwayInvite, type DoorwayResume } from "@/components/children/DoorwayInvite";
 import { useChildSession } from "@/components/children/useChildSession";
+import { getStory } from "@/content/stories";
 import { BookMark } from "@/components/reading/BookMark";
 import { CompanionPerch } from "@/components/reading/Companion";
 import { InstallButton } from "@/components/reading/InstallButton";
@@ -304,18 +305,25 @@ function Index() {
     </header>
   );
 
-  /** "Just exploring? Try a sample session →" (used in the target card on wide screens and below the doorway on phones). */
+  /** "Just exploring? Try a sample session →": inside the target card at every width; on screens without that card it stands alone. */
   const sampleLink = (
     <>
       Just exploring?{" "}
       <button
-        className="text-link inline-flex items-center gap-1"
+        className="text-link inline-flex min-h-11 items-center gap-1"
         onClick={() => setSample("read")}
       >
         Try a sample session <ArrowRight className="size-4" aria-hidden />
       </button>
     </>
   );
+  // What the doorway says: a retained children's session (something real in it — never just browsing the catalogue), or the
+  // plain invitation. Continuing it is just re-entering the corner; nothing is created, restarted or played.
+  const childStory = child.source?.kind === "story" ? getStory(child.source.slug) : null;
+  const childResume: DoorwayResume | null = child.hasSession
+    ? { title: childStory?.title ?? "Your own story", preparing: child.source === null }
+    : null;
+  const doorway = <DoorwayInvite onEnter={enterChildren} resume={childResume} />;
   // The welcome screen: the target card, with the doorway invitation below it.
   const targetCardShown =
     !inChildren && !sample && view === "prepare" && !contentReady && target === null;
@@ -463,7 +471,7 @@ function Index() {
                       </button>
                     </section>
                   </CompanionPerch>
-                  <DoorwayInvite onEnter={enterChildren} />
+                  {doorway}
                 </>
               )}
 
@@ -477,13 +485,11 @@ function Index() {
                         target={target}
                         onSet={setTarget}
                         footer={
-                          // Wide screens: inside the card, beneath the target choices. Phones keep it below the doorway.
-                          <p className="mt-6 hidden text-center text-muted-foreground lg:block">
-                            {sampleLink}
-                          </p>
+                          // Inside the card, beneath the target choices, at every width (the only copy of the link).
+                          <p className="mt-4 text-center text-muted-foreground">{sampleLink}</p>
                         }
                       />
-                      <DoorwayInvite onEnter={enterChildren} />
+                      {doorway}
                     </>
                   ) : (
                     <TargetCard target={target} onSet={setTarget} />
@@ -521,16 +527,10 @@ function Index() {
                 </>
               )}
 
-              {view === "prepare" && target !== null && !contentReady && (
-                <DoorwayInvite onEnter={enterChildren} />
-              )}
+              {view === "prepare" && target !== null && !contentReady && doorway}
 
-              {(view === "prepare" || view === "home") && (
-                <p
-                  className={`mt-2 text-center text-muted-foreground ${targetCardShown ? "lg:hidden" : ""}`}
-                >
-                  {sampleLink}
-                </p>
+              {(view === "prepare" || view === "home") && !targetCardShown && (
+                <p className="mt-2 text-center text-muted-foreground">{sampleLink}</p>
               )}
 
               {view === "read" && mode && target !== null && (

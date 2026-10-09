@@ -9,6 +9,9 @@ type Props = {
   /** Index into TEXT_SIZES; kept by the session so it survives a trip to Review and back. */
   textSize: number;
   onTextSize: (i: number) => void;
+  /** The page being read (0-based). The session passes it in so it survives a trip home and back; otherwise it is local. */
+  page?: number;
+  onPage?: (page: number) => void;
 };
 
 type Load = { state: "loading" } | { state: "error" } | { state: "ready"; text: StoryText };
@@ -26,9 +29,11 @@ type Load = { state: "loading" } | { state: "error" } | { state: "ready"; text: 
  * - No height animation or sliding. Turning a page scrolls only if the start of the new page is out of view.
  * The text is real text (resizes, readable by assistive technology); pictures are decorative here.
  */
-export function StoryReader({ story, textSize, onTextSize }: Props) {
+export function StoryReader({ story, textSize, onTextSize, page: controlled, onPage }: Props) {
+  const [localPage, setLocalPage] = useState(0);
+  const page = controlled ?? localPage;
+  const setPage = (p: number) => (onPage ? onPage(p) : setLocalPage(p));
   const [load, setLoad] = useState<Load>({ state: "loading" });
-  const [page, setPage] = useState(0);
   const [pictureFailed, setPictureFailed] = useState<Record<string, boolean>>({});
   const [announce, setAnnounce] = useState("");
   const area = useRef<HTMLDivElement>(null);

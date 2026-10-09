@@ -3,11 +3,19 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageViewer } from "./PageViewer";
 import type { PageImage } from "./PrepareStep";
 
-type Props = { text?: string | undefined; images?: PageImage[] | undefined };
+type Props = {
+  text?: string | undefined;
+  images?: PageImage[] | undefined;
+  /** Optional: a session that wants the page position kept across screens passes it in (otherwise it is local). */
+  page?: number;
+  onPage?: (page: number) => void;
+};
 
 /** Read-only passage. Pages are shown one at a time; page navigation stays available while recording. */
-export function PassageView({ text, images }: Props) {
-  const [page, setPage] = useState(0);
+export function PassageView({ text, images, page: controlled, onPage }: Props) {
+  const [local, setLocal] = useState(0);
+  const page = controlled ?? local;
+  const setPage = (p: number) => (onPage ? onPage(p) : setLocal(p));
 
   if (!images?.length) return <div className="reading-text">{text}</div>;
 

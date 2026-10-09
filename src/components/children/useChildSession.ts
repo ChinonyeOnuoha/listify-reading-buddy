@@ -32,6 +32,8 @@ export function useChildSession() {
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [reviewPos, setReviewPos] = useState(0);
+  /** The page being read (stories and the child's own pages), kept so Continue from the welcome screen returns to it. */
+  const [readPage, setReadPage] = useState(0);
 
   // The child's own content (same rules as the adult flow's: both drafts are kept when switching).
   const [mode, setMode] = useState<InputMode>(null);
@@ -83,6 +85,7 @@ export function useChildSession() {
       rec.clear();
       setReflection(null);
       setReviewPos(0);
+      setReadPage(0);
     }
     setSource(next);
     setView("read");
@@ -102,6 +105,7 @@ export function useChildSession() {
     setPreviewSlug(null);
     setReflection(null);
     setReviewPos(0);
+    setReadPage(0);
     setTextSize(DEFAULT_TEXT_SIZE);
     setTab("pick");
     setFilter("all");
@@ -127,6 +131,8 @@ export function useChildSession() {
     setReflection,
     reviewPos,
     setReviewPos,
+    readPage,
+    setReadPage,
     mode,
     text,
     setText,

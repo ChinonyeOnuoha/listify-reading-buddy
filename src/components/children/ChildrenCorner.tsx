@@ -48,9 +48,17 @@ export function ChildrenCorner({ s, onDone, onReserveBar, onReserveDock }: Props
               <PassageView
                 text={s.mode === "paste" ? s.text : undefined}
                 images={s.mode === "upload" ? s.images : undefined}
+                page={s.readPage}
+                onPage={s.setReadPage}
               />
             ) : story ? (
-              <StoryReader story={story} textSize={s.textSize} onTextSize={s.setTextSize} />
+              <StoryReader
+                story={story}
+                textSize={s.textSize}
+                onTextSize={s.setTextSize}
+                page={s.readPage}
+                onPage={s.setReadPage}
+              />
             ) : null
           }
           recState={s.rec.state}
