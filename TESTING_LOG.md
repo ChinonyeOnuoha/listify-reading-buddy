@@ -28,6 +28,9 @@ Reported by the project owner after trying the published app; I did not observe 
 
 These checks do **not** validate every device, browser or operating-system version, long recordings, or screen readers. They predate the page-zoom viewer described below, which has not been tried on those devices.
 
+### Owner-reported, 9 October 2026 (children’s corner)
+After the welcome-screen change was pushed (commit `4c6388d`), the project owner reported: *“I’ve tested returning to an active children’s story, and the experience works well.”* This is the owner’s report only; I did not observe it, and the device, browser and exact steps were **not** provided, so nothing more is recorded or claimed (for example, it says nothing about a finished recording, own pages, or screen readers).
+
 ## What was checked in the browser, and the result
 | Area | Checked | Result |
 |---|---|---|
