@@ -1,68 +1,75 @@
 # Children’s corner: story manifest and review record
 
-The eight built-in stories, where they came from, how each was checked, and what was left out. The same credit data lives in code (`src/content/stories/manifest.ts`) and is shown to readers under **About this story**; a test checks that every story has a complete credit, a CC BY 4.0 licence and every picture it names.
+The eight built-in stories, where they came from, how each was checked and what was changed. The same credit data lives in code (`src/content/stories/manifest.ts`) and is shown to readers under **About this story**; tests check that every story has a complete credit for its source, a CC BY 4.0 licence, every picture it names and a description for each picture. The research behind the selection is in [collection-review.md](collection-review.md).
 
-> **What this is, and isn’t.** Each story was read in full and its credit block checked on the specific edition by Claude (an AI assistant) on the project owner’s behalf, on 2026-10-09. **No educator, librarian, parent or child has reviewed them**, and reading level is not proof of age suitability. Treat the 8–12 age range as a design hypothesis (see [children-corner.md](children-corner.md#who-it-is-for)). Nothing here is legal advice.
+> **What this is, and isn’t.** Each story was read in full and its credits checked on the specific edition by Claude (an AI assistant) on the project owner’s behalf, on 2026-10-09; the selection was approved by the project owner. **No educator, librarian, parent or child has reviewed them**, and reading level is not proof of age suitability. Treat the 8–12 age range as a design hypothesis (see [children-corner.md](children-corner.md#who-it-is-for)). Credits and licences are reproduced from the editions, not guessed.
 
 ## Included stories
 
-| Title (as published) | Credits on the edition | Source edition | Copyright line · licence | Level · length · readability |
+Words are the story’s own; “+ notes” are pages the book prints after the story (shown after it under their own label and counted separately). Length labels and the “shorter” filter use the two together. FK is a rough Flesch–Kincaid grade of the story’s words.
+
+| Story | Source edition | Made by (as the edition credits them) | Copyright · licence | Words · pages · FK |
 |---|---|---|---|---|
-| **How Stories Came to People** | Author: Ghanaian folktale; Illustration: Wiehan de Jager | [ASb #1943](https://www.africanstorybook.org/reader.php?id=1943) | © African Storybook Initiative 2014 · CC BY 4.0 | Read aloud · 630 words · 12 pages · FK ≈ 4.6 |
-| **Lazy Anansi** | Author: Ghanaian folktale; Illustration: Wiehan de Jager | [ASb #1077](https://www.africanstorybook.org/reader.php?id=1077) | © African Storybook Initiative 2014 · CC BY 4.0 | Read aloud · 406 words · 8 pages · FK ≈ 3.9 |
-| **Hare and Tortoise (Again!)** | Author: Venkatramana Gowda, Divaspathy Hegde; Illustration: Padmanabha | [ASb #2058](https://www.africanstorybook.org/reader.php?id=2058) | © Pratham Books 2014 · CC BY 4.0 | Longer paragraphs · 460 words · 15 pages · FK ≈ 7.0 |
-| **The Magic Mokoro** | Author: Wendy Hartman; Illustration: Val Myburgh | [ASb #49147](https://www.africanstorybook.org/reader.php?id=49147) | © African Storybook Initiative 2024 · CC BY 4.0 | Longer paragraphs · 612 words · 15 pages · FK ≈ 4.8 |
-| **A tiny seed: The story of Wangari Maathai** | Author: Nicola Rijsdijk; Illustration: Maya Marshak | [ASb #9809](https://www.africanstorybook.org/reader.php?id=9809) | © Nicola Rijsdijk, Maya Marshak, Tarryn-Anne Anderson, Bookdash.org and African Storybook Initiative 2015 · CC BY 4.0 | Longer paragraphs · 407 words · 12 pages · FK ≈ 5.6 |
-| **Wayan and the turtles** | Author: Yvette Bezuidenhout; Adaptation: African Storybook, Yvette Bezuidenhout; Illustration: Fabianus Bayu | [ASb #34111](https://www.africanstorybook.org/reader.php?id=34111) | © African Storybook Initiative 2019 · CC BY 4.0 | Longer paragraphs · 520 words · 12 pages · FK ≈ 4.5 |
-| **Kariza's questions** | Author: Jean de Dieu Bavugempore; Translation: Aloysie Uwizeyemariya; Illustration: Rob Owen | [ASb #22197](https://www.africanstorybook.org/reader.php?id=22197) | © African Storybook Initiative 2017 · CC BY 4.0 | Longer paragraphs · 385 words · 12 pages · FK ≈ 5.9 |
-| **Let's ride on raindrops** | Author: Ndivhuho Mutsila; Translation: Ndivhuho Mutsila; Illustration: Sayan Mukherjee | [ASb #36034](https://www.africanstorybook.org/reader.php?id=36034) | © African Storybook Initiative 2021, Pratham Books (images) · CC BY 4.0 | Longer paragraphs · 440 words · 12 pages · FK ≈ 3.8 |
+| **Whoop, Goes the Pufferfish** | [StoryWeaver #60744](https://storyweaver.org.in/en/stories/60744-whoop-goes-the-pufferfish) | Sejal Mehta (words), Pia Meenakshi (pictures); published by Pratham Books; supported by Oracle; Guest Editor Radha Rangarajan, Guest Art Director Snigdha Rao | © Pratham Books, 2019 · CC BY 4.0 | 260 + 90 notes · 11 · 3.1 |
+| **Kariza’s Questions** | [ASb #22197](https://www.africanstorybook.org/reader.php?id=22197) | Jean de Dieu Bavugempore; translated by Aloysie Uwizeyemariya; Rob Owen (pictures) | © African Storybook Initiative 2017 · CC BY 4.0 | 385 · 12 · 5.9 |
+| **Jackal and the Sun** | [ASb #5276](https://www.africanstorybook.org/reader.php?id=5276) | Traditional San story, retold by Marlene Winberg from Naro storyteller Bega Cgase; pictures: Manyeka Arts Trust, from storyboards by Marlene Winberg interpreted by Satsiri Winberg from paintings by the San artists /Thaalu Rumao, /Tuoi Samcuia and Joao Wenne Dikuango, who have passed away | © Manyeka Arts Trust 2014 · CC BY 4.0 (original source www.manyeka.co.za) | 316 + 137 notes · 10 · 2.7 |
+| **How Zebra Got His Stripes** | [ASb #19262](https://www.africanstorybook.org/reader.php?id=19262) | Jaco Jacobs, Stephen Wallace (pictures); donated to ASb by LAPA Publishers | © Lapa 2016 · CC BY 4.0 | 488 · 10 · 4.2 |
+| **A Fish and a Gift** | [Book Dash](https://bookdash.org/books/a-fish-and-a-gift/) | Liesl Jobson (writer), Jesse Breytenbach (illustrator), Andy Thesen (designer); no editor named; made at Book Dash Cape Town, 28 June 2014; thanks to John Hishin for the photographs of the Muizenberg treknet fishermen | CC BY 4.0 (no © line on the edition) | 655 · 12 · 2.4 |
+| **Searching for the Spirit of Spring** | [Book Dash](https://bookdash.org/books/searching-for-the-spirit-of-spring/) | Mosa Mahlaba (writer), Selina Masego Morulane (illustrator), Sibusiso Mkhwanazi (designer); no editor named; made at Book Dash Johannesburg, 27 June 2015 | CC BY 4.0 (no © line on the edition) | 679 · 12 · 6.4 |
+| **The Girl Who Could Not Stop Laughing** | [StoryWeaver #59108](https://storyweaver.org.in/en/stories/59108-the-girl-who-could-not-stop-laughing) | Meera Ganapathi (words), ROSH (pictures); published by Pratham Books; supported by CISCO; Guest Editor Padmaparna Ghosh, Guest Art Director Sumedha Sah | © Pratham Books, 2019 · CC BY 4.0 | 761 + 36 game · 21 · 5.4 |
+| **Sailing Ships and Sinking Spoons** | [StoryWeaver #34971](https://storyweaver.org.in/en/stories/34971-sailing-ships-and-sinking-spoons) | Jamyang Gyaltsen (words), Ngawang Dorjee (pictures); published by Pratham Books; supported by CISCO; Guest Editor Aravinda Anantharaman | © Pratham Books, 2018 · CC BY 4.0 | 834 + 354 science notes · 19 · 4.6 |
 
-*FK = Flesch–Kincaid grade, computed from each story’s text with a simple syllable counter. It is a rough indicator of sentence and word length only, not of content, themes or age suitability.*
+Themes (a story may have several): *Tales and adventures* — Jackal, Spring · *Funny* — Zebra, Laughing · *Everyday life* — Kariza, Fish, Laughing · *Nature* — Whoop, Zebra, Fish · *Science* — Kariza, Laughing, Sailing. Readability describes sentence and word length only, not content, themes, interest or age.
 
-Notes from reading each story:
+Notes from reading each story, with content considerations:
 
-- **How Stories Came to People** — A Ghanaian Anansi tale. Anansi traps a leopard in a pit, hornets in a gourd and a snake on a stick; played for cleverness, nothing graphic.
-- **Lazy Anansi** — Short tale explaining spiders’ thin legs; a pulled-leg gag, no real harm.
-- **Hare and Tortoise (Again!)** — Two rivals cooperate. The edition is © Pratham Books (the imprint credited on its cover); the cover picture has the imprint’s lettering baked in, so an interior picture is used on cards instead.
-- **The Magic Mokoro** — A folktale about greed and gratitude. The chief is stranded with a never-ending pile of fish; a mild comeuppance.
-- **A tiny seed: The story of Wangari Maathai** — A short biography of Wangari Maathai. Mentions that she died in 2011; stated plainly and gently. Pictures are watercolours on a white ground (shown contained, not cropped).
-- **Wayan and the turtles** — A fisherman’s son and a turtle: plastic pollution. Mentions an old turtle in distress, sickness in the village and a belief that the dead return to the sea; handled gently. Original source credited: www.wayan.blue.
-- **Kariza's questions** — Curiosity and hand-washing, with a microscope scene. Translated by Aloysie Uwizeyemariya; credits the translator.
-- **Let's ride on raindrops** — The water cycle as a children’s journey. The edition credits “Pratham Books (images)”; the licence line printed on the edition is CC BY 4.0, and that is what was relied on (the images’ original StoryWeaver licence page was not separately opened — see the open items).
+- **Whoop, Goes the Pufferfish** — A tide pool in Mumbai; a frightened fish is reassured. Very short and simple. The closing page explains tide pools and tides.
+- **Kariza’s Questions** — Curiosity and hand-washing, with a microscope scene; mentions germs and illness.
+- **Jackal and the Sun** — A San tale with short sentences. Jackal is told to “find a wife”; the story notes mention parents forcing marriage for domestic help. Pictures are bold, digitally reworked San art; some pages show only the sun or plants.
+- **How Zebra Got His Stripes** — Slapstick: Baboon is kicked and his bottom burnt (“butt”); idioms such as “my tongue feels like biltong”.
+- **A Fish and a Gift** — A Muizenberg fishing family; Afrikaans family words (*Oupa, Ouma, Oupagrootjie*), *treknet*; a shark is netted and freed; a quarrel between fishers and surfers is mentioned. Black-and-white pen drawings.
+- **Searching for the Spirit of Spring** — A quest with a repeated pattern; names *Nkanyezi, Ndlovu, Bhubezi*.
+- **The Girl Who Could Not Stop Laughing** — Fart and toilet jokes, a “bomb” metaphor for her laugh, sound-effect spellings that are fun but tricky to read aloud, a Mahabharata reference (*Ghatotkacha*, a rakshasa), Indian words (*bonda, Anna, Sir*); the science (laughter, animals that laugh, face muscles) is simplified.
+- **Sailing Ships and Sinking Spoons** — Two young Tibetan monks, their elder Genla and teacher Miss Sonam; Tibetan words glossed in the book (*Genla, Tashi delek*); the physics explanation is simplified but sound; the longest story.
+- No book gives pronunciation help, so **none is included**.
 
 ## How each edition was verified
 
-For every story the African Storybook (ASb) reader page for that exact edition was fetched and its **back-cover credit block** read: author, adaptation or translation, illustrator, language, level, the © line, the licence line (“Creative Commons: Attribution 4.0”), the source and any original source. That block reads, for each of these editions: *“You are free to download, copy, translate or adapt this story and use the illustrations as long as you attribute in the following way…”*. ASb’s Terms of Use say stories are openly licensed and may be copied and adapted with acknowledgement; they also say some stories carry a **non-commercial restriction**, so the per-edition licence line, not the site’s general statement, was what decided inclusion.
+- **StoryWeaver (three stories).** The owner supplied each book’s English PDF and StoryWeaver’s attribution file. Every page, credit page and licence page was read (“Some rights reserved. This book is CC-BY-4.0 licensed”, with a per-picture credit line). Anonymous reading on the site is capped, so the PDFs were the route; nothing was fetched around that cap.
+- **Book Dash (two stories).** The official ebook PDFs were downloaded from bookdash.org’s source-files pages (each states “licensed under a Creative Commons Attribution 4.0 Licence” and names the creatives); the site states all its books are CC BY 4.0, and its [crediting requirements](https://bookdash.org/book-dash-crediting-requirements_and-identity-guidelines/) were read.
+- **African Storybook (three stories).** The reader page for that exact edition was fetched and its **back-cover credit block** read (title, author, illustrator, © line, licence, source, original source). ASb’s catalogue was scanned earlier: 573 English upper-level editions, 559 read exactly “Creative Commons: Attribution 4.0”; non-commercial, older-wording and AI-illustrated editions were excluded.
+- Every story was read in full and every picture looked at. Word counts are whitespace-separated words of the shipped text.
 
-Selection process, so the gaps are visible:
+## Required credits and optional ones
 
-1. Parsed ASb’s public catalogue: 10,738 entries, 1,696 in English, 573 at the two longest reading levels.
-2. Fetched all 573 reader pages and recorded each licence line. 559 read exactly “Creative Commons: Attribution 4.0”; the others carried a non-commercial (CC BY-NC) restriction, an older wording or no line, and were **excluded**.
-3. Narrowed to editions of 350–900 words, approved by ASb and with no “AI-generated” note: 204 remained.
-4. Chose eight to cover folktales and real-world stories, then read each in full and looked at the cover.
-
-Considered and **left out**:
-
-- *The Strange Orange Lorry* — its illustrations are credited to an AI image generator.
-- *Oscar’s Journey* — no illustrator credit on the edition, and it interleaves maths questions with the story.
-- *Tortoise Finds His House* — a gentle story, but much younger than the audience hypothesis.
-- All 559 other CC BY editions — not read in full; absence is not a judgement.
-
-**StoryWeaver is not used.** It was part of the brief. Its reader is a client-rendered app; the pages I could reach did not expose the licence line and page text of an edition in a form I could verify, so no StoryWeaver title was added on trust. Two included editions are Pratham Books material that African Storybook republishes under its own CC BY 4.0 statement. A future pass should verify StoryWeaver editions from each book’s own licence statement.
+- **CC BY 4.0** (legal code §3(a)): name the creators as the licensor asks; keep the copyright and licence notices; link to the material; say if it was modified; link the licence.
+- **StoryWeaver** (its attribution guidelines): author, illustrator, translator, **publisher and donor**, the title, **StoryWeaver as the platform**, the licence. Optional: links back and to creators’ profiles. The app shows StoryWeaver’s own attribution text for each book, with the guest editors and art directors as further credits.
+- **Book Dash** (its crediting requirements): the creatives named (author, illustrator, designer and editor *where the edition names one*), a link to www.bookdash.org, a **visible Book Dash logo**, and the nature of any adaptation. The app shows Book Dash’s own sentence with the names, the logo (the SVG that bookdash.org serves, `public/credits/book-dash-logo.svg`, 9 KB) with a link, and the changes list. Optional: its onboarding and “tell us” forms and phrasing options.
+- **African Storybook** (its terms of use): list the writers, illustrators, translators and copyright holders on the story, and acknowledge African Storybook as the source.
 
 ## What was changed
 
-- **Text:** unchanged apart from whitespace (runs of spaces collapsed, paragraph breaks kept). Page order and page breaks follow the edition. No words were edited, added or removed.
-- **Pictures:** the edition’s own illustrations, **resized (if at all) and re-saved as JPEG** at quality ~70–72; card thumbnails are 480 px. Nothing was redrawn, cropped or recoloured in the files. On cards, a few pictures are shown cropped or contained by CSS only. The pictures are treated as decorative (empty alt text) because the page text carries the whole story; descriptive alt text has not been written (an open item).
-- **Presentation:** pages are shown one at a time with the picture above the text; the edition’s lettering and layout are not reproduced.
-- **Attribution** is built from the edition’s credit block and shown in the app (About this story). The app does not imply endorsement by African Storybook, Pratham Books, the Saide-run African Storybook Initiative or the creators, and says so.
+- **Words:** unchanged apart from whitespace and where lines wrap. In the printed *Girl Who Could Not Stop Laughing* some words (sound effects, a list, a footnote) are scattered around the pictures at different letter sizes; they are shown as plain lines in the book’s reading order, and the list of funny things in numbered order. One missing space after a full stop in *Spring* was added. A pale unfilled text box sits on one *Whoop* picture; it is shown as published.
+- **Extra pages:** pages a book prints after its story (tide-pool notes, a laughing game, the science notes, the story notes) are shown after the story under a label such as “Science notes · after the story”, counted separately, and never described as part of the story. Their pages share their own height, so the page controls move once when a reader crosses from the story into them.
+- **Pictures:** the editions’ own pictures. ASb: the edition’s pictures. StoryWeaver: the pictures embedded in the PDFs, which contain no lettering. Book Dash: *A Fish and a Gift* uses Book Dash’s own lettering-free illustration files (`_no-text`); *Spring* uses the illustrations placed in the ebook PDF, which also contain no lettering. All are resized and re-saved as JPEG (quality ~70, at most 900 px wide; card thumbnails 480 px). Nothing was redrawn, recoloured, reconstructed or had lettering erased. Three *Sailing Ships* pages are picture-only in the book and kept that way.
+- **Descriptions:** every picture has a short description written for this app from the picture itself (not copied from a source). They describe what happens, not the style.
+- **Presentation:** pages are shown one at a time with the picture above the text; the books’ printed layouts are not reproduced.
+- The app does not imply endorsement by the sources, publishers or creators, and says so.
 
 ## Other assets
 
-- **Doorway illustration** (`src/components/children/DoorwayArt.tsx`): an inline vector drawing made for this app (arch, starry opening, open door; the bookmark companion is the real component). It replaced a low-resolution crop of the approved concept image, which was deleted rather than enlarged. **Outstanding asset:** a cleaner, higher-resolution painterly original that matches the bookmark character; until it is supplied the vector drawing stands in.
+- **Doorway illustration** (`src/components/children/DoorwayArt.tsx`): an inline vector drawing made for this app. A cleaner painterly original matching the bookmark character is still outstanding.
+- **Book Dash logo** (`public/credits/book-dash-logo.svg`): downloaded from bookdash.org’s own site files on 2026-10-09, for the credit Book Dash asks for; shown only in Book Dash stories’ About view.
 - **Bookmark companion:** the app’s own SVG drawing (see [design-system.md](design-system.md)).
-- **No paid or generated content** was used for stories, covers or text.
+- **No paid or generated content** was used for stories, pictures or text. The picture descriptions were written by Claude from looking at the pictures.
+
+## Removed from the collection
+
+How Stories Came to People, Lazy Anansi, Hare and Tortoise (Again!), The Magic Mokoro, Wayan and the Turtles — replaced for variety (four were folktales; none was funny, an adventure or set outside Africa). **A Tiny Seed** — removed because the African Storybook text differs from Book Dash’s current text (about 84% of words match) and neither edition says which came first, so its credits could not be completed without guessing. **Let’s Ride on Raindrops** — removed because the credit for its pictures (Sayan Mukherjee, © Pratham Books 2019, from *Catch a Ride on Raindrops* on StoryWeaver) could not be confirmed for all eleven pictures. Both can be revisited; see [collection-review.md](collection-review.md).
 
 ## Open items
 
-- Descriptive alt text for illustrations; an educator or librarian review of age suitability and themes; verifying StoryWeaver editions; opening the Pratham Books images’ own licence page for *Let’s Ride on Raindrops*; more stories (a collection of eight is small by design).
+- A review by an educator or librarian of themes and age suitability; testing with children.
+- The painterly doorway artwork.
+- The verified alternates in [collection-review.md](collection-review.md) (for example *The Will*, *How Night Came to Opio’s Village*) if the collection is revisited.
+- Real-device checks of the new pages (see [TESTING_LOG.md](../TESTING_LOG.md)).

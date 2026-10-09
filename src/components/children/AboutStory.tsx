@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { lengthLabel, type StoryMeta } from "@/content/stories";
+import { lengthLabel, readingWords, wordsLine, type StoryMeta } from "@/content/stories";
 import { StoryCredits } from "./StoryCredits";
 
 /**
@@ -37,7 +37,7 @@ export function AboutStory({ story, className = "" }: { story: StoryMeta; classN
           {story.title}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
-          {lengthLabel(story.words)} · {story.words} words · {story.pageCount} pages
+          {lengthLabel(readingWords(story))} · {wordsLine(story)} · {story.pageCount} pages
         </DialogDescription>
         <StoryCredits story={story} />
       </DialogContent>

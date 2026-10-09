@@ -205,8 +205,8 @@ describe("welcome screen doorway", () => {
 
 const cards = () =>
   screen
-    .queryAllByRole("button", { name: /words$/ })
-    .filter((b) => b.getAttribute("aria-haspopup") === "dialog");
+    .queryAllByRole("button")
+    .filter((b) => b.getAttribute("aria-haspopup") === "dialog" && /words/.test(b.textContent ?? ""));
 
 describe("choosing a story", () => {
   it("shows the collection with lengths, honest filters and no search", async () => {
@@ -216,10 +216,15 @@ describe("choosing a story", () => {
     expect(screen.getByRole("tab", { name: "Bring your own" })).toBeTruthy();
     expect(cards()).toHaveLength(8);
     expect(screen.queryByRole("searchbox")).toBeNull();
-    fireEvent.click(btn("Folktales"));
-    expect(cards()).toHaveLength(4);
-    fireEvent.click(btn("Real world"));
-    expect(cards()).toHaveLength(4);
+    // a story can have several themes; only themes the collection really has get a filter
+    const counts = { "Tales and adventures": 2, Funny: 2, "Everyday life": 3, Nature: 3, Science: 3 };
+    for (const [name, n] of Object.entries(counts)) {
+      fireEvent.click(btn(name));
+      expect(cards()).toHaveLength(n);
+      expect(btn(name).getAttribute("aria-pressed")).toBe("true");
+    }
+    expect(screen.queryByRole("button", { name: "Folktales" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Real world" })).toBeNull();
     fireEvent.click(btn("All"));
     expect(cards()).toHaveLength(8);
   });
@@ -232,7 +237,7 @@ describe("choosing a story", () => {
       expect(card.closest("li")!.className).toContain("flex");
       const title = card.querySelector(".display-serif")!;
       expect(title.className).not.toMatch(/truncate|line-clamp|text-ellipsis|overflow-hidden/); // never cut off
-      const meta = within(card).getByText(/words$/);
+      const meta = within(card).getByText(/words/);
       expect(meta.className).toContain("mt-auto"); // metadata pinned to the bottom so it lines up
     }
     // the grid adapts to larger text instead of squeezing: columns are sized in rem
@@ -242,10 +247,12 @@ describe("choosing a story", () => {
   it("selecting a story opens ONE modal with its cover, description, length and actions — not a preview below the grid", async () => {
     renderApp();
     await enter();
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
-    const d = await screen.findByRole("dialog", { name: "Lazy Anansi" });
-    expect(within(d).getByText(/Why spiders have long, thin legs/)).toBeTruthy();
-    expect(within(d).getByText(/Short read · 406 words · 8 pages/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
+    const d = await screen.findByRole("dialog", { name: "Jackal and the Sun" });
+    expect(within(d).getByText(/A lazy jackal falls for the sun/)).toBeTruthy();
+    expect(
+      within(d).getByText("Medium read · 316 words, plus 137 in the story notes · 10 pages"),
+    ).toBeTruthy(); // the story's words and the separate notes are both said
     expect(within(d).getByRole("button", { name: /read this story/i })).toBeTruthy();
     expect(within(d).getByRole("button", { name: "About this story" })).toBeTruthy();
     expect(within(d).getAllByRole("button", { name: "Close" })).toHaveLength(1); // exactly one close control
@@ -288,10 +295,10 @@ describe("choosing a story", () => {
   it("Escape closes the modal and focus returns to the same card; nothing else changes", async () => {
     renderApp();
     await enter();
-    const card = screen.getByRole("button", { name: /The Magic Mokoro/ });
+    const card = screen.getByRole("button", { name: /How Zebra Got His Stripes/ });
     card.focus();
     fireEvent.click(card);
-    await screen.findByRole("dialog", { name: "The Magic Mokoro" });
+    await screen.findByRole("dialog", { name: "How Zebra Got His Stripes" });
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(card));
@@ -302,7 +309,7 @@ describe("choosing a story", () => {
   it("closing with the close control also returns to the card", async () => {
     renderApp();
     await enter();
-    const card = screen.getByRole("button", { name: /Lazy Anansi/ });
+    const card = screen.getByRole("button", { name: /Jackal and the Sun/ });
     fireEvent.click(card);
     const d = await screen.findByRole("dialog");
     fireEvent.click(within(d).getByRole("button", { name: "Close" }));
@@ -319,7 +326,7 @@ describe("choosing a story", () => {
     play.mockClear();
     const stray = document.createElement("audio");
     document.body.appendChild(stray);
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     await screen.findByRole("dialog");
     expect(pause).toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -351,18 +358,19 @@ describe("reading and recording a built-in story", () => {
   it("shows the story, resizes only its text, and runs several pause/listen/resume cycles", async () => {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
 
     // illustrated, real text, one-line page counter, no target
-    expect(await screen.findByText(/There was a spider called Anansi/)).toBeTruthy();
-    expect(screen.getByText("Page 1 of 8").className).toContain("whitespace-nowrap");
+    expect(await screen.findByText(/Long ago, there was a foolish lazy jackal/)).toBeTruthy();
+    expect(screen.getByText("Page 1 of 10").className).toContain("whitespace-nowrap");
+    // the picture is described, not left as decoration
     expect(
-      document.querySelector('main img[src="/stories/lazy-anansi/p1.jpg"]')!.getAttribute("alt"),
-    ).toBe("");
+      document.querySelector('main img[src="/stories/jackal-and-the-sun/p1.jpg"]')!.getAttribute("alt"),
+    ).toMatch(/jackals/);
     expect(screen.queryByText(/of \d+ min target/)).toBeNull();
 
     // text size changes the story text, not the controls
-    const para = screen.getByText(/There was a spider called Anansi/).closest("div")!;
+    const para = screen.getByText(/Long ago, there was a foolish lazy jackal/).closest("div")!;
     const before = para.style.fontSize;
     const controlsBefore = btn("Make the text larger").className;
     fireEvent.click(btn("Make the text larger"));
@@ -374,8 +382,8 @@ describe("reading and recording a built-in story", () => {
 
     // pages
     fireEvent.click(btn("Next page"));
-    expect(screen.getByText("Page 2 of 8")).toBeTruthy();
-    expect(await screen.findByText(/Rabbit's house/)).toBeTruthy();
+    expect(screen.getByText("Page 2 of 10")).toBeTruthy();
+    expect(await screen.findByText(/Old Jackal woke up to find his son sleeping/)).toBeTruthy();
 
     // start → (pause → listen so far → resume) × 2 → finish
     fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
@@ -398,7 +406,7 @@ describe("reading and recording a built-in story", () => {
 });
 
 describe("listening back", () => {
-  async function toReview(story: RegExp = /Lazy Anansi/) {
+  async function toReview(story: RegExp = /Jackal and the Sun/) {
     renderApp();
     await enter();
     await openStory(story);
@@ -543,11 +551,11 @@ describe("listening back", () => {
     );
     await screen.findByRole("heading", { name: /where shall we go today/i });
     expect(cards()).toHaveLength(8);
-    expect(screen.getByText(/Your recording of “Lazy Anansi” is saved for now/)).toBeTruthy();
+    expect(screen.getByText(/Your recording of “Jackal and the Sun” is saved for now/)).toBeTruthy();
   });
 
   it("Find a shorter story filters by word count against the current story, clearly and removably — never 'easier'", async () => {
-    await toReview(/How Stories Came to People/); // 630 words
+    await toReview(/A Fish and a Gift/); // 655 words
     fireEvent.click(feeling("A bit hard"));
     fireEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
@@ -556,15 +564,18 @@ describe("listening back", () => {
     );
     await screen.findByRole("heading", { name: /where shall we go today/i });
     const chip = screen.getByRole("button", {
-      name: /Remove filter: shorter than How Stories Came to People/i,
+      name: /Remove filter: shorter than A Fish and a Gift/i,
     });
-    expect(chip.textContent).toContain("Shorter than “How Stories Came to People”");
+    expect(chip.textContent).toContain("Shorter than “A Fish and a Gift”");
+    // by full reading length (story plus any notes): Whoop 350, Kariza 385, Jackal 453, Zebra 488 are under 655;
+    // Spring (679), the laughing story (797) and the science story (1,188) are not
     const shown = cards();
-    expect(shown).toHaveLength(7); // everything except the story itself is shorter than 630 words
-    expect(shown.some((c) => /How Stories Came to People/.test(c.textContent ?? ""))).toBe(false);
-    expect(shown.every((c) => Number(/(\d+) words/.exec(c.textContent ?? "")![1]) < 630)).toBe(
-      true,
-    );
+    expect(shown.map((c) => c.querySelector(".display-serif")!.textContent)).toEqual([
+      "Whoop, Goes the Pufferfish",
+      "Kariza’s Questions",
+      "Jackal and the Sun",
+      "How Zebra Got His Stripes",
+    ]);
     expect(document.body.textContent).not.toMatch(/easier|simpler/i);
     expect(screen.getByText(/saved for now/)).toBeTruthy(); // recording kept while browsing
     fireEvent.click(chip);
@@ -572,8 +583,25 @@ describe("listening back", () => {
     expect(screen.queryByRole("button", { name: /Remove filter/ })).toBeNull();
   });
 
+  it("a story's separate notes count towards its full reading length, so it is never called shorter than it reads", async () => {
+    // Jackal and the Sun is 316 words but has 137 more in its notes (453 in all). A story with 400 words reading
+    // length would be shorter than that; Kariza (385) is, Zebra (488) is not.
+    await toReview(/Jackal and the Sun/);
+    fireEvent.click(feeling("A bit hard"));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Find a shorter story",
+      }),
+    );
+    await screen.findByRole("heading", { name: /where shall we go today/i });
+    expect(cards().map((c) => c.querySelector(".display-serif")!.textContent)).toEqual([
+      "Whoop, Goes the Pufferfish",
+      "Kariza’s Questions",
+    ]);
+  });
+
   it("says so, and offers the full collection, when no story is shorter", async () => {
-    await toReview(/Kariza/); // the shortest story, 385 words
+    await toReview(/Whoop/); // the shortest reading, 350 words including its notes
     fireEvent.click(feeling("A bit hard"));
     fireEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
@@ -582,7 +610,7 @@ describe("listening back", () => {
     );
     const status = await screen.findByRole("status");
     expect(status.textContent).toContain(
-      "There isn’t a shorter story than “Kariza’s Questions” in this collection yet.",
+      "There isn’t a shorter story than “Whoop, Goes the Pufferfish” in this collection yet.",
     );
     expect(cards()).toHaveLength(0);
     fireEvent.click(within(status).getByRole("button", { name: "Show all stories" }));
@@ -676,12 +704,12 @@ describe("listening back", () => {
     await toReview();
     click(/choose another story/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    expect(screen.getByText(/Your recording of “Lazy Anansi” is saved for now/)).toBeTruthy();
+    expect(screen.getByText(/Your recording of “Jackal and the Sun” is saved for now/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /The Magic Mokoro/ }));
-    const d = await screen.findByRole("dialog", { name: "The Magic Mokoro" });
+    fireEvent.click(screen.getByRole("button", { name: /How Zebra Got His Stripes/ }));
+    const d = await screen.findByRole("dialog", { name: "How Zebra Got His Stripes" });
     fireEvent.click(within(d).getByRole("button", { name: /read this story/i }));
-    expect(within(d).getByText(/Your recording of “Lazy Anansi” will be replaced/)).toBeTruthy(); // inside the modal
+    expect(within(d).getByText(/Your recording of “Jackal and the Sun” will be replaced/)).toBeTruthy(); // inside the modal
     fireEvent.click(within(d).getByRole("button", { name: /keep my recording/i }));
     expect(screen.queryByText(/will be replaced/)).toBeNull();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -691,14 +719,14 @@ describe("listening back", () => {
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
 
     click(/choose another story/i); // and replacing is possible, deliberately
-    fireEvent.click(screen.getByRole("button", { name: /The Magic Mokoro/ }));
+    fireEvent.click(screen.getByRole("button", { name: /How Zebra Got His Stripes/ }));
     const d2 = await screen.findByRole("dialog");
     fireEvent.click(within(d2).getByRole("button", { name: /read this story/i }));
     fireEvent.click(within(d2).getByRole("button", { name: /replace and read/i }));
     expect(
       (await screen.findAllByRole("button", { name: /start recording/i })).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "The Magic Mokoro", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "How Zebra Got His Stripes", level: 1 })).toBeTruthy();
   });
 });
 
@@ -710,7 +738,7 @@ describe("modals never leave the page locked", () => {
   it("starting a story from its modal leaves nothing locked or hidden", async () => {
     renderApp();
     await enter();
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     fireEvent.click(await screen.findByRole("button", { name: /read this story/i }));
     await screen.findAllByRole("button", { name: /start recording/i });
     await waitFor(() => expect(locked()).toBe(false));
@@ -723,7 +751,7 @@ describe("modals never leave the page locked", () => {
     async (label) => {
       renderApp();
       await enter();
-      await openStory(/Lazy Anansi/);
+      await openStory(/Jackal and the Sun/);
       fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
       fireEvent.click(await within(dock()).findByRole("button", { name: /finish recording/i }));
       await screen.findByRole("heading", { name: "You made time to read." });
@@ -756,7 +784,7 @@ describe("adult and children's sessions stay separate", () => {
     expect((screen.getByLabelText("Today's target") as HTMLInputElement).value).toBe("10");
     click(/step inside/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     click(/read this story/i);
     await screen.findAllByRole("button", { name: /start recording/i });
     click("Reading Buddy home");
@@ -768,7 +796,7 @@ describe("adult and children's sessions stay separate", () => {
     await adultWithTarget();
     click(/step inside/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     click(/read this story/i);
     await screen.findAllByRole("button", { name: /start recording/i });
 
@@ -789,7 +817,7 @@ describe("adult and children's sessions stay separate", () => {
     await adultWithTarget();
     click(/step inside/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     click(/read this story/i);
     await screen.findAllByRole("button", { name: /start recording/i });
     fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
@@ -812,13 +840,13 @@ describe("adult and children's sessions stay separate", () => {
     await adultWithTarget();
     click(/step inside/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     click(/read this story/i);
     await screen.findAllByRole("button", { name: /start recording/i });
     click("Exit session");
     fireEvent.click(await screen.findByRole("button", { name: "Stay in session" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    expect(screen.getByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Jackal and the Sun", level: 1 })).toBeTruthy();
   });
 });
 
@@ -826,7 +854,7 @@ describe("leaving mid-recording and browser Back", () => {
   async function recordingInCorner() {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
     await within(dock()).findByRole("button", { name: /finish recording/i });
   }
@@ -854,7 +882,7 @@ describe("leaving mid-recording and browser Back", () => {
   it("browser Back leaves the corner, preserves its session, and Forward returns to it", async () => {
     renderApp();
     await enter();
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ }));
     click(/read this story/i);
     await screen.findAllByRole("button", { name: /start recording/i });
     expect(window.history.state).toEqual({ rb: "children" });
@@ -868,7 +896,7 @@ describe("leaving mid-recording and browser Back", () => {
       window.history.forward();
       await new Promise((r) => setTimeout(r, 30));
     });
-    expect(await screen.findByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Jackal and the Sun", level: 1 })).toBeTruthy();
   });
 
   it("browser Back mid-recording stays put and asks first", async () => {
@@ -914,8 +942,8 @@ describe("a retained children's session on the welcome screen", () => {
     await enter();
     fireEvent.click(screen.getByRole("tab", { name: "Bring your own" })); // looking, choosing nothing
     fireEvent.click(screen.getByRole("tab", { name: "Pick a story" }));
-    fireEvent.click(screen.getByRole("button", { name: /Folktales/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Lazy Anansi/ })); // opens and closes a preview
+    fireEvent.click(screen.getByRole("button", { name: /Tales and adventures/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Jackal and the Sun/ })); // opens and closes a preview
     fireEvent.keyDown(await screen.findByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByRole("button", { name: "Exit session" })).toBeNull();
@@ -928,15 +956,15 @@ describe("a retained children's session on the welcome screen", () => {
   it("shows the chosen story and Continue; it is still one control and returns to the page that was being read", async () => {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     await nextPage(2);
-    expect(screen.getByText("Page 3 of 8")).toBeTruthy();
+    expect(screen.getByText("Page 3 of 10")).toBeTruthy();
     await home();
 
     const d = door();
     expect(d.tagName).toBe("BUTTON");
     expect(within(d).getByText("Back to your story")).toBeTruthy();
-    expect(within(d).getByText("Lazy Anansi")).toBeTruthy();
+    expect(within(d).getByText("Jackal and the Sun")).toBeTruthy();
     expect(within(d).getByText("Continue")).toBeTruthy();
     expect(d.textContent).not.toMatch(/doorway to stories|Step inside/);
     expect(d.querySelectorAll("button, a, input, [tabindex]")).toHaveLength(0);
@@ -950,8 +978,8 @@ describe("a retained children's session on the welcome screen", () => {
     expect(d.textContent).toMatch(/children’s reading corner/);
 
     fireEvent.click(d.querySelector("svg")!); // clicking the picture continues too
-    expect(await screen.findByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
-    expect(screen.getByText("Page 3 of 8")).toBeTruthy(); // the same page, not a new session
+    expect(await screen.findByRole("heading", { name: "Jackal and the Sun", level: 1 })).toBeTruthy();
+    expect(screen.getByText("Page 3 of 10")).toBeTruthy(); // the same page, not a new session
     expect(within(dock()).getByRole("button", { name: /start recording/i })).toBeTruthy(); // nothing started
   });
 });
@@ -965,7 +993,7 @@ describe("continuing a retained children's session", () => {
   const toReview = async () => {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
     fireEvent.click(await within(dock()).findByRole("button", { name: /finish recording/i }));
     await screen.findByRole("heading", { name: "You made time to read." });
@@ -978,7 +1006,7 @@ describe("continuing a retained children's session", () => {
     fireEvent.keyDown(await screen.findByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await home();
-    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy();
+    expect(within(door()).getByText("Jackal and the Sun")).toBeTruthy();
 
     click(/back to your story/i);
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
@@ -994,7 +1022,7 @@ describe("continuing a retained children's session", () => {
   it("returning home mid-recording still asks first; cancelling keeps recording; confirming keeps the audio", async () => {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     fireEvent.click(within(dock()).getByRole("button", { name: /start recording/i }));
     await within(dock()).findByRole("button", { name: /finish recording/i });
     click("Reading Buddy home");
@@ -1005,7 +1033,7 @@ describe("continuing a retained children's session", () => {
     click("Reading Buddy home");
     fireEvent.click(await screen.findByRole("button", { name: "Finish and go home" }));
     await screen.findByRole("heading", { name: /read aloud/i });
-    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy();
+    expect(within(door()).getByText("Jackal and the Sun")).toBeTruthy();
     click(/back to your story/i);
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
@@ -1050,7 +1078,7 @@ describe("continuing a retained children's session", () => {
   it("an explicit discard brings back the plain doorway", async () => {
     renderApp();
     await enter();
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     click("Exit session");
     fireEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
@@ -1080,7 +1108,7 @@ describe("continuing a retained children's session", () => {
     await screen.findByRole("button", { name: /resume session/i });
     click(/step inside/i);
     await screen.findByRole("heading", { name: /where shall we go today/i });
-    await openStory(/Lazy Anansi/);
+    await openStory(/Jackal and the Sun/);
     click("Reading Buddy home");
     await screen.findByRole("heading", { name: /read aloud/i });
 
@@ -1089,9 +1117,9 @@ describe("continuing a retained children's session", () => {
     const doorway = btn(/back to your story/i);
     expect(resume).not.toBe(doorway);
     expect(screen.getByText("Your session is waiting")).toBeTruthy();
-    expect(within(doorway).getByText("Lazy Anansi")).toBeTruthy();
+    expect(within(doorway).getByText("Jackal and the Sun")).toBeTruthy();
     expect(doorway.textContent).toMatch(/children’s reading corner/);
-    expect(resume.textContent).not.toMatch(/children|Lazy Anansi/);
+    expect(resume.textContent).not.toMatch(/children|Jackal and the Sun/);
 
     click(/resume session/i); // the adult session is intact
     await screen.findAllByRole("button", { name: /start recording/i });
@@ -1099,7 +1127,7 @@ describe("continuing a retained children's session", () => {
     click("Reading Buddy home");
     await screen.findByRole("heading", { name: /read aloud/i });
     click(/back to your story/i); // and so is the children's
-    expect(await screen.findByRole("heading", { name: "Lazy Anansi", level: 1 })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Jackal and the Sun", level: 1 })).toBeTruthy();
   });
 
   it("the sample session keeps both personal sessions and returns to the same welcome screen", async () => {
@@ -1110,7 +1138,7 @@ describe("continuing a retained children's session", () => {
     await screen.findByText("Sample session");
     click("Exit sample");
     await screen.findByRole("heading", { name: /read aloud/i });
-    expect(within(door()).getByText("Lazy Anansi")).toBeTruthy(); // the children's session is untouched
+    expect(within(door()).getByText("Jackal and the Sun")).toBeTruthy(); // the children's session is untouched
     click(/back to your story/i);
     expect(await screen.findByRole("heading", { name: "You made time to read." })).toBeTruthy();
   });

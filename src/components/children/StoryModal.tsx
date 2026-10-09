@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { ConfirmInline } from "@/components/reading/ConfirmInline";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { lengthLabel, type StoryMeta } from "@/content/stories";
+import { lengthLabel, readingWords, wordsLine, type StoryMeta } from "@/content/stories";
 import { StoryCredits } from "./StoryCredits";
 
 type Props = {
@@ -83,7 +83,7 @@ export function StoryModal({
                 {story.title}
               </DialogTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {lengthLabel(story.words)} · {story.words} words · {story.pageCount} pages
+                {lengthLabel(readingWords(story))} · {wordsLine(story)} · {story.pageCount} pages
               </p>
             </div>
             <DialogDescription className="text-base text-foreground">

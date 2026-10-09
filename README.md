@@ -11,7 +11,7 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 - **Playback:** listen back on the review screen; re-record or start a new session (each asks first).
 - **Sessions:** the logo returns home and **Resume session** brings you back; **Exit session** is the only way to discard everything.
 - **A sample session** to look around without a microphone, with clearly labelled, made-up sample feedback.
-- **A children’s reading corner**, entered through a quiet “doorway” on the welcome screen: pick one of eight openly licensed illustrated stories (or bring your own), read aloud with the same recorder, then listen back — with no timed target, scores or claims. It keeps its own separate session. See [docs/children-corner.md](docs/children-corner.md).
+- **A children’s reading corner**, entered through a quiet “doorway” on the welcome screen: pick one of eight openly licensed illustrated stories (from African Storybook, Book Dash and StoryWeaver) (or bring your own), read aloud with the same recorder, then listen back — with no timed target, scores or claims. It keeps its own separate session. See [docs/children-corner.md](docs/children-corner.md).
 - **Installable and offline-capable** as a web app in supported browsers.
 
 ## What is not connected yet

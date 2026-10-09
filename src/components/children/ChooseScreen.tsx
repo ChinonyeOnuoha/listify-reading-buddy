@@ -5,11 +5,14 @@ import { ConfirmInline } from "@/components/reading/ConfirmInline";
 import { ContinueBar } from "@/components/reading/ContinueBar";
 import { PrepareStep } from "@/components/reading/PrepareStep";
 import {
-  CATEGORY_LABEL,
   SHORT_READ_MAX_WORDS,
   STORIES,
+  THEME_LABEL,
+  THEME_ORDER,
   getStory,
   lengthLabel,
+  readingWords,
+  wordsLine,
   type StoryMeta,
 } from "@/content/stories";
 import { StoryModal } from "./StoryModal";
@@ -66,7 +69,7 @@ function StoryCard({
         <span className="flex flex-1 flex-col px-1 pb-1">
           <span className="display-serif block text-[1.0625rem] leading-snug">{story.title}</span>
           <span className="mt-auto block pt-1 text-sm text-muted-foreground">
-            {lengthLabel(story.words)} · {story.words} words
+            {lengthLabel(readingWords(story))} · {wordsLine(story)}
           </span>
         </span>
       </button>
@@ -87,9 +90,14 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
   const lf = s.lengthFilter;
   const shown = STORIES.filter(
     (x) =>
-      (s.filter === "all" || x.category === s.filter) &&
-      (!lf || (lf.kind === "shorter" ? x.words < lf.words : x.words <= SHORT_READ_MAX_WORDS)),
+      (s.filter === "all" || x.themes.includes(s.filter)) &&
+      (!lf ||
+        (lf.kind === "shorter"
+          ? readingWords(x) < lf.words
+          : readingWords(x) <= SHORT_READ_MAX_WORDS)),
   );
+  // Only themes the collection really has get a filter.
+  const themes = THEME_ORDER.filter((t) => STORIES.some((x) => x.themes.includes(t)));
   const open = getStory(s.previewSlug);
   const kept = s.rec.take;
 
@@ -206,7 +214,7 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
         >
           <div className="flex flex-wrap items-center gap-2 sm:justify-center">
             <div role="group" aria-label="Show stories" className="flex flex-wrap gap-2">
-              {(["all", "folktale", "real"] as const).map((f) => (
+              {(["all", ...themes] as const).map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -218,7 +226,7 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
                       : "border-line bg-card text-foreground hover:border-primary hover:bg-tint"
                   }`}
                 >
-                  {f === "all" ? "All" : CATEGORY_LABEL[f]}
+                  {f === "all" ? "All" : THEME_LABEL[f]}
                 </button>
               ))}
             </div>

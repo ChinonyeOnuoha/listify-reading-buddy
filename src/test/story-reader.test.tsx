@@ -13,10 +13,10 @@ vi.mock("@/content/stories", async (orig) => ({
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
-const story = getStory("lazy-anansi")!;
+const story = getStory("jackal-and-the-sun")!;
 const text = {
   pages: [
-    { paragraphs: ["Page one text."], image: "/stories/lazy-anansi/p1.jpg" },
+    { paragraphs: ["Page one text."], image: "/stories/jackal-and-the-sun/p1.jpg" },
     { paragraphs: ["Page two text."], image: null },
   ],
 };
@@ -88,18 +88,63 @@ describe("StoryReader failure handling", () => {
 
 describe("real story modules", () => {
   it("each one loads through the manifest's own loader", async () => {
-    const real = (await vi.importActual<typeof import("@/content/stories")>("@/content/stories"))
-      .loadStoryText;
-    expect((await real("lazy-anansi")).pages.length).toBe(8);
+    const mod = await vi.importActual<typeof import("@/content/stories")>("@/content/stories");
+    for (const s of mod.STORIES) expect((await mod.loadStoryText(s.slug)).pages.length).toBe(s.pageCount);
     expect(loadStoryText).toBeTypeOf("function");
+  });
+});
+
+describe("descriptions, notes and picture-only pages", () => {
+  const notesText = {
+    pages: [
+      { paragraphs: ["The story."], image: "/stories/sailing-ships-and-sinking-spoons/p1.jpg", alt: "Two boys sail paper boats." },
+      { paragraphs: [], image: "/stories/sailing-ships-and-sinking-spoons/p2.jpg", alt: "A ship on the sea." },
+      {
+        heading: "What is Gravity?",
+        paragraphs: ["Things fall."],
+        image: null,
+        extra: "Science notes",
+      },
+    ],
+  };
+  const notesStory = getStory("sailing-ships-and-sinking-spoons")!;
+
+  it("describes each picture, and labels pages that come after the story so they are never mistaken for it", async () => {
+    load.mockResolvedValue(notesText);
+    const { container } = render(<StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />);
+    await screen.findByText("The story.");
+    expect(container.querySelector("img")!.getAttribute("alt")).toBe("Two boys sail paper boats.");
+    // the notes page is in the page (hidden until reached); the story page itself carries no label
+    expect(screen.getByText(/after the story/).closest("[aria-hidden]")).not.toBeNull();
+    expect(screen.getByText("The story.").closest("[aria-hidden]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" })); // picture-only page
+    expect(screen.getByText("Page 2 of 3")).toBeTruthy();
+    expect(container.querySelector("img")!.getAttribute("alt")).toBe("A ship on the sea.");
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByText("Science notes · after the story").closest("[aria-hidden]")).toBeNull();
+    expect(screen.getByRole("heading", { name: "What is Gravity?", level: 2 })).toBeTruthy();
+    expect(screen.getByText("Things fall.")).toBeTruthy();
+  });
+
+  it("keeps the picture slot and the controls in place on a picture-only page and on a notes page", async () => {
+    load.mockResolvedValue(notesText);
+    const { container } = render(<StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />);
+    await screen.findByText("The story.");
+    const slots = () => [...container.querySelectorAll(".h-\\[clamp\\(11rem\\,32vh\\,20rem\\)\\]")];
+    expect(slots()).toHaveLength(2); // a reserved slot on each story page; the written notes group has no pictures, so none
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByRole("navigation", { name: "Pages" })).toBe(nav); // the same controls, not rebuilt
+    expect(slots()).toHaveLength(2);
   });
 });
 
 const longText = {
   pages: [
-    { paragraphs: ["One short line."], image: "/stories/lazy-anansi/p1.jpg" },
+    { paragraphs: ["One short line."], image: "/stories/jackal-and-the-sun/p1.jpg" },
     { paragraphs: ["A much longer page. ".repeat(40)], image: null },
-    { paragraphs: ["Short again."], image: "/stories/lazy-anansi/p3.jpg" },
+    { paragraphs: ["Short again."], image: "/stories/jackal-and-the-sun/p3.jpg" },
   ],
 };
 /** Text that is on the visible page (pages that aren't current are kept in the layout but hidden from everyone). */
@@ -162,8 +207,8 @@ describe("steady page turns", () => {
     render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
     await screen.findByText("One short line.");
     fireEvent.click(screen.getByRole("button", { name: "Next page" })); // page 2 (no picture): neighbours are p1 and p3
-    await waitFor(() => expect(created).toContain("/stories/lazy-anansi/p3.jpg"));
-    expect(created).toContain("/stories/lazy-anansi/p1.jpg");
+    await waitFor(() => expect(created).toContain("/stories/jackal-and-the-sun/p3.jpg"));
+    expect(created).toContain("/stories/jackal-and-the-sun/p1.jpg");
     vi.stubGlobal("Image", Real);
   });
 

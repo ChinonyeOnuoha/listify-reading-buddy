@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InputMode, PageImage } from "@/components/reading/PrepareStep";
 import { useRecorder } from "@/components/reading/useRecorder";
-import type { StoryCategory } from "@/content/stories";
+import type { StoryTheme } from "@/content/stories";
 
 export type ChildView = "choose" | "read" | "review";
 export type ChildTab = "pick" | "own";
@@ -25,7 +25,7 @@ export const sameSource = (a: ChildSource | null, b: ChildSource | null) =>
 export function useChildSession() {
   const [view, setView] = useState<ChildView>("choose");
   const [tab, setTab] = useState<ChildTab>("pick");
-  const [filter, setFilter] = useState<"all" | StoryCategory>("all");
+  const [filter, setFilter] = useState<"all" | StoryTheme>("all");
   const [lengthFilter, setLengthFilter] = useState<LengthFilter | null>(null);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
   const [source, setSource] = useState<ChildSource | null>(null);

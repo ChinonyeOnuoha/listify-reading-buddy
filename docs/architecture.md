@@ -7,7 +7,7 @@ Main parts:
 - `src/routes/index.tsx` — the session state (target, content, recording) and the screens' wiring.
 - `src/components/reading/` — one component per step (`TargetCard`, `PrepareStep`, `PageGallery`, `ReadStep`, `ReviewStep`, `SampleSession`, `SampleFeedback`), `useRecorder` (recording), `Companion` (the bookmark character).
 - `src/lib/pwa.ts` — install, offline and update state. `tools/` — the service-worker template and the build plugin that stamps it.
-- `src/components/children/`, `src/content/stories/` — the children’s reading corner and its eight built-in stories (see [children-corner.md](children-corner.md)). Story text is one small module per story, loaded only when that story opens; pictures live in `public/stories/` and load lazily page by page.
+- `src/components/children/`, `src/content/stories/` — the children’s reading corner and its eight built-in stories from African Storybook, Book Dash and StoryWeaver (see [children-corner.md](children-corner.md)); Book Dash asks for its logo with its books, so `public/credits/book-dash-logo.svg` is served from the app’s own origin. Story text is one small module per story, loaded only when that story opens; pictures live in `public/stories/` and load lazily page by page.
 - `lab/` — the development-only AI feasibility lab (see [ai-feasibility.md](ai-feasibility.md)); it has its own Vite root and is not part of the app.
 
 ## How recording works (and why)

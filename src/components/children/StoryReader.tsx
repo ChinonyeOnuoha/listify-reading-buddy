@@ -58,7 +58,10 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
   const text = load.state === "ready" ? load.text : null;
   const total = text?.pages.length ?? story.pageCount;
   const current = Math.min(page, total - 1);
-  const hasPictures = !!text?.pages.some((p) => p.image);
+  // Pages printed after the story (notes, a game) are grouped apart from the story's own pages (see the render below).
+  const extraStart = text?.pages.findIndex((p) => p.extra) ?? -1;
+  const groupOf = (i: number) => (extraStart !== -1 && i >= extraStart ? 1 : 0);
+  const activeGroup = groupOf(current);
 
   // Warm the pictures either side of the current page so a turn doesn't wait on the network.
   useEffect(() => {
@@ -172,8 +175,18 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
       {text && (
         // `overflow-anchor: none` stops the browser nudging the scroll position when the visible page changes.
         <div ref={area} className="scroll-mt-20 [overflow-anchor:none]" lang="en">
-          <div className="grid">
+          {/*
+            The story's pages share one grid (one height); any pages printed after the story (notes, a game) share another, so
+            a long notes page never makes every story page tall. The controls only move once, when the reader crosses from the
+            story into those pages, and back.
+          */}
+          {[0, 1].map((group) => {
+            // a group with no pictures at all (for example, written notes) reserves no picture slot
+            const groupHasPictures = !!text.pages.some((p, i) => groupOf(i) === group && p.image);
+            return (
+            <div key={group} className={`grid ${activeGroup === group ? "" : "hidden"}`}>
             {text.pages.map((pg, i) => {
+              if (groupOf(i) !== group) return null;
               const active = i === current;
               return (
                 <div
@@ -182,7 +195,7 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                   aria-hidden={active ? undefined : true}
                   inert={!active}
                 >
-                  {hasPictures && (
+                  {groupHasPictures && (
                     <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white [@media(max-height:480px)]:h-[44vh]">
                       {active && pg.image ? (
                         pictureFailed[pg.image] ? (
@@ -192,7 +205,7 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                         ) : (
                           <img
                             src={pg.image}
-                            alt=""
+                            alt={pg.alt ?? ""}
                             decoding="async"
                             className="size-full object-contain"
                             onError={() => setPictureFailed((f) => ({ ...f, [pg.image!]: true }))}
@@ -203,8 +216,19 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                   )}
                   <div
                     style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
-                    className="max-w-[65ch] space-y-4 leading-[1.7]"
+                    className={`max-w-[65ch] space-y-4 leading-[1.7] ${pg.extra ? "border-l-4 border-apricot pl-4" : ""}`}
                   >
+                    {/* Pages printed after the story (notes, a game) say so, so they are never mistaken for the story. */}
+                    {pg.extra && (
+                      <p className="!mt-0 text-[0.875rem] leading-snug font-medium text-muted-foreground">
+                        {pg.extra} · after the story
+                      </p>
+                    )}
+                    {pg.heading && (
+                      <h2 className="display-serif !mt-2 text-[1.25em] leading-tight text-heading">
+                        {pg.heading}
+                      </h2>
+                    )}
                     {pg.paragraphs.map((t, k) => (
                       <p key={k}>{t}</p>
                     ))}
@@ -212,7 +236,9 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                 </div>
               );
             })}
-          </div>
+            </div>
+            );
+          })}
         </div>
       )}
 

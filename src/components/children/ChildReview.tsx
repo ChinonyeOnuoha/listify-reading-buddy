@@ -4,7 +4,7 @@ import { Companion } from "@/components/reading/Companion";
 import { ConfirmInline } from "@/components/reading/ConfirmInline";
 import { formatTime } from "@/components/reading/useRecorder";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { getStory } from "@/content/stories";
+import { getStory, readingWords } from "@/content/stories";
 import type { ChildSession, Reflection } from "./useChildSession";
 
 /** The emoji are decorative (hidden from assistive technology); the text label carries the meaning. */
@@ -133,7 +133,7 @@ export function ChildReview({ s, onDone }: Props) {
     s.setLengthFilter(
       action === "shorter"
         ? story
-          ? { kind: "shorter", words: story.words, title: story.title }
+          ? { kind: "shorter", words: readingWords(story), title: story.title }
           : { kind: "short" }
         : null,
     );
