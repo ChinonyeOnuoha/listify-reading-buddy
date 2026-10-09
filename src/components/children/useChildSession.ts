@@ -6,7 +6,9 @@ import type { StoryCategory } from "@/content/stories";
 export type ChildView = "choose" | "read" | "review";
 export type ChildTab = "pick" | "own";
 /** The child's own impression, kept only in this session: never an assessment, never sent anywhere. */
-export type Reflection = "comfortable" | "tricky" | "unsure";
+export type Reflection = "easy" | "hard" | "unsure";
+/** A removable limit on the catalogue by length (word count), set from the reflection answers. Never a judgement of difficulty. */
+export type LengthFilter = { kind: "shorter"; words: number; title: string } | { kind: "short" };
 /** What is being (or was last) read: a built-in story, or the child's own pasted text or page photos. */
 export type ChildSource = { kind: "story"; slug: string } | { kind: "own" };
 
@@ -24,6 +26,7 @@ export function useChildSession() {
   const [view, setView] = useState<ChildView>("choose");
   const [tab, setTab] = useState<ChildTab>("pick");
   const [filter, setFilter] = useState<"all" | StoryCategory>("all");
+  const [lengthFilter, setLengthFilter] = useState<LengthFilter | null>(null);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
   const [source, setSource] = useState<ChildSource | null>(null);
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
@@ -102,6 +105,7 @@ export function useChildSession() {
     setTextSize(DEFAULT_TEXT_SIZE);
     setTab("pick");
     setFilter("all");
+    setLengthFilter(null);
     setView("choose");
   };
 
@@ -112,6 +116,8 @@ export function useChildSession() {
     setTab,
     filter,
     setFilter,
+    lengthFilter,
+    setLengthFilter,
     previewSlug,
     setPreviewSlug,
     source,

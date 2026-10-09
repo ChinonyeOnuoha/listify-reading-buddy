@@ -1,54 +1,35 @@
 import { ArrowRight } from "lucide-react";
-
-type Props = {
-  onEnter: () => void;
-  /**
-   * "beside": a compact row on phones; on wide screens a modest column beside the target card.
-   * "row": always the compact horizontal row (used once the main flow has moved on).
-   */
-  layout: "beside" | "row";
-};
+import { DoorwayArt } from "./DoorwayArt";
 
 /**
- * The quiet way into the children's corner, on the welcome screen. It never asks for an adult reading target, and it is
- * clearly secondary: small art, a short serif title, one understated text action. The picture is the approved doorway art
- * (decorative: the text says everything it does).
+ * The quiet way into the children's corner, on the welcome screen. The whole invitation — picture, title and "Step inside" —
+ * is ONE button: one tab stop, one accessible name, nothing nested. It never asks for an adult reading target.
+ * "Step inside" is plain text (no border, fill, pill or underline); hovering tints the row and nudges the arrow, and keyboard
+ * focus shows the app's normal ring around the whole row.
  */
-export function DoorwayInvite({ onEnter, layout }: Props) {
-  const beside = layout === "beside";
+export function DoorwayInvite({ onEnter }: { onEnter: () => void }) {
   return (
-    <section
-      aria-labelledby="doorway-h"
-      className={
-        beside
-          ? "flex items-center gap-4 lg:flex-col lg:gap-3 lg:pt-6 lg:text-center"
-          : "flex items-center gap-4"
-      }
+    <button
+      type="button"
+      onClick={onEnter}
+      className="group -ml-2 flex w-[calc(100%+0.5rem)] items-center gap-4 rounded-2xl p-2 text-left transition-colors hover:bg-tint lg:mx-auto lg:ml-auto lg:w-fit lg:max-w-md lg:gap-5 lg:px-4"
     >
-      <img
-        src="/illustrations/doorway.png"
-        alt=""
-        width={252}
-        height={232}
-        decoding="async"
-        className={beside ? "h-auto w-20 shrink-0 sm:w-24 lg:w-40" : "h-auto w-20 shrink-0 sm:w-24"}
-      />
-      <div className="min-w-0">
-        <h2 id="doorway-h" className="display-serif text-[1.25rem] leading-snug">
+      <DoorwayArt className="w-24 shrink-0 sm:w-28" />
+      <span className="min-w-0">
+        <span className="display-serif block text-[1.25rem] leading-snug">
           A doorway to stories
-        </h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">A reading corner for children</p>
-        <button
-          type="button"
-          onClick={onEnter}
-          aria-label="Step inside the children’s reading corner"
-          className={`text-link -ml-1 mt-1 inline-flex min-h-11 items-center gap-1 rounded-md px-1 ${
-            beside ? "lg:mx-auto lg:ml-0" : ""
-          }`}
-        >
-          Step inside <ArrowRight className="size-4" aria-hidden />
-        </button>
-      </div>
-    </section>
+        </span>{" "}
+        <span className="mt-0.5 block text-sm text-muted-foreground">
+          A reading corner for children
+        </span>{" "}
+        <span className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-primary">
+          Step inside
+          <ArrowRight
+            className="size-4 transition-transform motion-safe:group-hover:translate-x-0.5"
+            aria-hidden
+          />
+        </span>
+      </span>
+    </button>
   );
 }

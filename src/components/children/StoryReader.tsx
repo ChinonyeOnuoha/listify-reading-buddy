@@ -4,8 +4,6 @@ import { loadStoryText, type StoryMeta, type StoryText } from "@/content/stories
 import { AboutStory } from "./AboutStory";
 import { TEXT_SIZES } from "./useChildSession";
 
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 type Props = {
   story: StoryMeta;
   /** Index into TEXT_SIZES; kept by the session so it survives a trip to Review and back. */
@@ -16,17 +14,28 @@ type Props = {
 type Load = { state: "loading" } | { state: "error" } | { state: "ready"; text: StoryText };
 
 /**
- * One built-in story, a page at a time. The text is real text (not part of a picture), so it resizes and can be read by
- * assistive technology; the pictures are decorative. Only the story text changes size — the controls stay put — and page
- * navigation, like the recording controls, stays available throughout.
+ * One built-in story, a page at a time, built so that turning a page changes the words and the picture and nothing else.
+ *
+ * Why it doesn't jump:
+ * - Every page sits in the SAME grid cell and only the current one is visible, so the reading area is always as tall as the
+ *   tallest page at the current width and text size. The page counter and Previous/Next below it therefore never move
+ *   (they are not below text of varying length), and neither does anything beneath them.
+ * - The picture has a slot of fixed size, reserved before the image loads and kept if it fails or the page has no picture;
+ *   the whole picture is shown (`object-contain`), never stretched or cropped.
+ * - There is no inner scrolling: long text simply makes the area taller, and the page scrolls as usual.
+ * - No height animation or sliding. Turning a page scrolls only if the start of the new page is out of view.
+ * The text is real text (resizes, readable by assistive technology); pictures are decorative here.
  */
 export function StoryReader({ story, textSize, onTextSize }: Props) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [page, setPage] = useState(0);
   const [pictureFailed, setPictureFailed] = useState<Record<string, boolean>>({});
   const [announce, setAnnounce] = useState("");
-  const pageTop = useRef<HTMLDivElement>(null);
-  const userMoved = useRef(false);
+  const area = useRef<HTMLDivElement>(null);
+  const prevBtn = useRef<HTMLButtonElement>(null);
+  const nextBtn = useRef<HTMLButtonElement>(null);
+  const moved = useRef(false);
+  const focusAfter = useRef<"prev" | "next" | null>(null);
 
   const fetchText = useCallback(() => {
     let cancelled = false;
@@ -44,25 +53,37 @@ export function StoryReader({ story, textSize, onTextSize }: Props) {
   const text = load.state === "ready" ? load.text : null;
   const total = text?.pages.length ?? story.pageCount;
   const current = Math.min(page, total - 1);
-  const pg = text?.pages[current];
+  const hasPictures = !!text?.pages.some((p) => p.image);
 
-  // Warm the next picture so turning the page doesn't wait.
+  // Warm the pictures either side of the current page so a turn doesn't wait on the network.
   useEffect(() => {
-    const next = text?.pages[current + 1]?.image;
-    if (next) new Image().src = next;
+    for (const i of [current + 1, current - 1]) {
+      const img = text?.pages[i]?.image;
+      if (img) new Image().src = img;
+    }
   }, [text, current]);
 
-  // After the reader turns a page, bring the top of the new page into view (not on first load).
+  // After the reader turns a page: put focus somewhere sensible if the control they used just became unavailable, and
+  // show the start of the new page only if it isn't already in view.
   useEffect(() => {
-    if (!userMoved.current) return;
-    pageTop.current?.scrollIntoView({
-      block: "start",
-      behavior: reducedMotion() ? "auto" : "smooth",
-    });
+    if (!moved.current) return;
+    if (focusAfter.current) {
+      (focusAfter.current === "next" ? nextBtn : prevBtn).current?.focus({ preventScroll: true });
+      focusAfter.current = null;
+    }
+    const el = area.current;
+    if (!el) return;
+    const headerBottom =
+      document.querySelector("header.sticky")?.getBoundingClientRect().bottom ?? 0;
+    const top = el.getBoundingClientRect().top;
+    const startVisible = top >= headerBottom && top < window.innerHeight * 0.6;
+    if (!startVisible) window.scrollBy({ top: top - headerBottom - 12, behavior: "auto" });
   }, [current]);
 
-  const go = (to: number) => {
-    userMoved.current = true;
+  const go = (to: number, via: "prev" | "next") => {
+    moved.current = true;
+    if (via === "prev" && to === 0) focusAfter.current = "next"; // Previous is about to become unavailable
+    if (via === "next" && to === total - 1) focusAfter.current = "prev";
     setPage(to);
   };
   const size = (delta: -1 | 1) => {
@@ -124,8 +145,6 @@ export function StoryReader({ story, textSize, onTextSize }: Props) {
         {announce}
       </p>
 
-      <div ref={pageTop} className="scroll-mt-20" />
-
       {load.state === "loading" && (
         <p className="flex items-center gap-2 py-10 text-muted-foreground" role="status">
           <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden /> Opening
@@ -145,32 +164,49 @@ export function StoryReader({ story, textSize, onTextSize }: Props) {
         </div>
       )}
 
-      {pg && (
-        <div lang="en">
-          {pg.image && (
-            <div className="mb-4 flex h-[30vh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white sm:h-[32vh] [@media(max-height:480px)]:h-[44vh]">
-              {pictureFailed[pg.image] ? (
-                <p className="px-4 text-center text-sm text-muted-foreground">
-                  The picture couldn’t be loaded. The story is all here in words.
-                </p>
-              ) : (
-                <img
-                  src={pg.image}
-                  alt=""
-                  decoding="async"
-                  className="size-full object-contain"
-                  onError={() => setPictureFailed((f) => ({ ...f, [pg.image!]: true }))}
-                />
-              )}
-            </div>
-          )}
-          <div
-            style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
-            className="max-w-[65ch] space-y-4 leading-[1.7]"
-          >
-            {pg.paragraphs.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
+      {text && (
+        // `overflow-anchor: none` stops the browser nudging the scroll position when the visible page changes.
+        <div ref={area} className="scroll-mt-20 [overflow-anchor:none]" lang="en">
+          <div className="grid">
+            {text.pages.map((pg, i) => {
+              const active = i === current;
+              return (
+                <div
+                  key={i}
+                  className={`col-start-1 row-start-1 ${active ? "" : "invisible"}`}
+                  aria-hidden={active ? undefined : true}
+                  inert={!active}
+                >
+                  {hasPictures && (
+                    <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white [@media(max-height:480px)]:h-[44vh]">
+                      {active && pg.image ? (
+                        pictureFailed[pg.image] ? (
+                          <p className="px-4 text-center text-sm text-muted-foreground">
+                            The picture couldn’t be loaded. The story is all here in words.
+                          </p>
+                        ) : (
+                          <img
+                            src={pg.image}
+                            alt=""
+                            decoding="async"
+                            className="size-full object-contain"
+                            onError={() => setPictureFailed((f) => ({ ...f, [pg.image!]: true }))}
+                          />
+                        )
+                      ) : null}
+                    </div>
+                  )}
+                  <div
+                    style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
+                    className="max-w-[65ch] space-y-4 leading-[1.7]"
+                  >
+                    {pg.paragraphs.map((t, k) => (
+                      <p key={k}>{t}</p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -178,21 +214,24 @@ export function StoryReader({ story, textSize, onTextSize }: Props) {
       {text && total > 1 && (
         <nav aria-label="Pages" className="mt-3 flex items-center justify-between gap-4">
           <button
+            ref={prevBtn}
             className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-ml-3 sm:px-3"
             disabled={current === 0}
-            onClick={() => go(current - 1)}
+            onClick={() => go(current - 1, "prev")}
             aria-label="Previous page"
           >
             <ChevronLeft className="size-5 sm:size-4" aria-hidden />{" "}
             <span className="hidden sm:inline">Previous page</span>
           </button>
+          {/* Announces only the page number (a polite live region); the passage itself is never read out automatically. */}
           <span className="text-sm whitespace-nowrap text-muted-foreground" aria-live="polite">
             Page {current + 1} of {total}
           </span>
           <button
+            ref={nextBtn}
             className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-mr-3 sm:px-3"
             disabled={current === total - 1}
-            onClick={() => go(current + 1)}
+            onClick={() => go(current + 1, "next")}
             aria-label="Next page"
           >
             <span className="hidden sm:inline">Next page</span>{" "}

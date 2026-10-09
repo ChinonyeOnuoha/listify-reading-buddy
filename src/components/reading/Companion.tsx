@@ -205,14 +205,20 @@ export function Companion({ interactive = false, ...art }: Props) {
       data-pose={art.pose}
       {...(reacting ? { "data-reacting": reacting } : {})}
       // A mouse hover waves; touch and pen don't (a touch also fires pointerenter, which would wave on every scroll-touch).
-      onPointerEnter={(e: PointerEvent<HTMLButtonElement>) => e.pointerType === "mouse" && react("wave")}
+      onPointerEnter={(e: PointerEvent<HTMLButtonElement>) =>
+        e.pointerType === "mouse" && react("wave")
+      }
       onClick={() => react("wiggle")}
       onAnimationEnd={(e) => {
         // The arrival wave ends here too; only one of the reaction animations may clear a running reaction.
         if (reacting && REACTION_ANIMATIONS.has(e.animationName ?? "")) finish();
       }}
     >
-      <CompanionArt {...rest} animate={arriving} className="pointer-events-none block h-auto w-full" />
+      <CompanionArt
+        {...rest}
+        animate={arriving}
+        className="pointer-events-none block h-auto w-full"
+      />
     </button>
   );
 }
@@ -224,26 +230,19 @@ export function Companion({ interactive = false, ...art }: Props) {
 export function CompanionPerch({
   pose,
   animate,
-  perched = false,
   children,
 }: {
   pose: CompanionPose;
   animate?: boolean;
-  /** Stay on the card's top edge at every width (used when something else occupies the side margin). */
-  perched?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className={perched ? "relative mt-12" : "relative mt-12 lg:mt-0"}>
+    <div className="relative mt-12 lg:mt-0">
       <Companion
         pose={pose}
         interactive
         {...(animate ? { animate } : {})}
-        className={
-          perched
-            ? "absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14"
-            : "absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
-        }
+        className="absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
       />
       {children}
     </div>

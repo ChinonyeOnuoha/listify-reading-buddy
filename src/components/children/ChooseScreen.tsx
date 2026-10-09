@@ -1,18 +1,25 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowRight, Check, Headphones } from "lucide-react";
+import { Headphones, X } from "lucide-react";
 import { Companion } from "@/components/reading/Companion";
 import { ConfirmInline } from "@/components/reading/ConfirmInline";
 import { ContinueBar } from "@/components/reading/ContinueBar";
 import { PrepareStep } from "@/components/reading/PrepareStep";
-import { CATEGORY_LABEL, STORIES, getStory, lengthLabel, type StoryMeta } from "@/content/stories";
-import { AboutStory } from "./AboutStory";
+import {
+  CATEGORY_LABEL,
+  SHORT_READ_MAX_WORDS,
+  STORIES,
+  getStory,
+  lengthLabel,
+  type StoryMeta,
+} from "@/content/stories";
+import { StoryModal } from "./StoryModal";
 import { sameSource, type ChildSession, type ChildSource, type ChildTab } from "./useChildSession";
 
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const pauseAllAudio = () => document.querySelectorAll("audio").forEach((a) => a.pause());
 
-const TABS: { id: ChildTab; label: string; hint?: string }[] = [
+const TABS: { id: ChildTab; label: string }[] = [
   { id: "pick", label: "Pick a story" },
-  { id: "own", label: "Bring your own", hint: "Paste text or add page photos" },
+  { id: "own", label: "Bring your own" },
 ];
 
 /** A recording of something is being kept; say what, in the child's words. */
@@ -21,25 +28,30 @@ const nameOf = (source: ChildSource | null) => {
   return "your own story";
 };
 
+/**
+ * Every card in a row is the same height: the picture area has a fixed shape, the title takes the room it needs (long titles
+ * wrap in full, never truncated) and the length line is pinned to the bottom so the metadata lines up across a row.
+ */
 function StoryCard({
   story,
-  selected,
-  onSelect,
+  onOpen,
+  setRef,
 }: {
   story: StoryMeta;
-  selected: boolean;
-  onSelect: () => void;
+  onOpen: () => void;
+  setRef: (el: HTMLButtonElement | null) => void;
 }) {
   return (
-    <li>
+    <li className="flex">
       <button
+        ref={setRef}
         type="button"
-        aria-pressed={selected}
-        onClick={onSelect}
-        className="tile relative flex-col items-stretch gap-2 p-2.5 text-left"
+        aria-haspopup="dialog"
+        onClick={onOpen}
+        className="tile h-full w-full flex-col items-stretch gap-2 p-2.5 text-left"
       >
         <span
-          className={`relative block aspect-[4/3] overflow-hidden rounded-xl ${story.cardFit === "contain" ? "bg-white" : "bg-tint"}`}
+          className={`relative block aspect-[4/3] shrink-0 overflow-hidden rounded-xl ${story.cardFit === "contain" ? "bg-white" : "bg-tint"}`}
         >
           <img
             src={story.cardImage}
@@ -51,17 +63,12 @@ function StoryCard({
             className={`size-full ${story.cardFit === "contain" ? "object-contain" : "object-cover"}`}
           />
         </span>
-        <span className="block px-1 pb-1">
+        <span className="flex flex-1 flex-col px-1 pb-1">
           <span className="display-serif block text-[1.0625rem] leading-snug">{story.title}</span>
-          <span className="mt-0.5 block text-sm text-muted-foreground">
+          <span className="mt-auto block pt-1 text-sm text-muted-foreground">
             {lengthLabel(story.words)} · {story.words} words
           </span>
         </span>
-        {selected && (
-          <span className="absolute top-4 right-4 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Check className="size-3" strokeWidth={3} aria-hidden />
-          </span>
-        )}
       </button>
     </li>
   );
@@ -72,27 +79,53 @@ type Props = { s: ChildSession; onReserveBar: (px: number) => void };
 /** "Where shall we go today?": pick a built-in story, or bring one you love. */
 export function ChooseScreen({ s, onReserveBar }: Props) {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const previewRef = useRef<HTMLElement>(null);
+  const cardRefs = useRef(new Map<string, HTMLButtonElement>());
   const [confirm, setConfirm] = useState<ChildSource | null>(null);
+  // Starting a story leaves this screen, so it waits until the modal has fully closed (see `begin`).
+  const [starting, setStarting] = useState<ChildSource | null>(null);
 
-  const shown = STORIES.filter((x) => s.filter === "all" || x.category === s.filter);
-  const selected = getStory(s.previewSlug);
+  const lf = s.lengthFilter;
+  const shown = STORIES.filter(
+    (x) =>
+      (s.filter === "all" || x.category === s.filter) &&
+      (!lf || (lf.kind === "shorter" ? x.words < lf.words : x.words <= SHORT_READ_MAX_WORDS)),
+  );
+  const open = getStory(s.previewSlug);
   const kept = s.rec.take;
 
   // Choosing a different thing to read replaces the kept recording, so that is always the child's clear choice.
   const start = (next: ChildSource) => {
     if (kept && !sameSource(s.source, next)) return setConfirm(next);
-    s.begin(next);
+    begin(next);
   };
-
-  // A newly selected cover brings its preview into view and moves focus to it, without any sound or auto-start.
+  /**
+   * Close any open modal first and start reading only after it has closed: navigating away while it is still open would
+   * unmount it abruptly and leave the page locked (pointer events switched off on the body).
+   */
+  const begin = (next: ChildSource) => {
+    setConfirm(null);
+    s.setPreviewSlug(null);
+    setStarting(next);
+  };
   useEffect(() => {
-    if (!selected) return;
-    const el = previewRef.current;
-    if (!el) return;
-    el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
-    el.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
-  }, [selected?.slug]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!starting || s.previewSlug) return;
+    const next = starting;
+    setStarting(null);
+    s.begin(next);
+  }, [starting, s]);
+  const openStory = (slug: string) => {
+    pauseAllAudio(); // opening a preview never leaves playback running, and closing it never resumes anything
+    setConfirm(null);
+    s.setPreviewSlug(slug);
+  };
+  const closeStory = () => {
+    setConfirm(null);
+    s.setPreviewSlug(null);
+  };
+  const clearFilters = () => {
+    s.setLengthFilter(null);
+    s.setFilter("all");
+  };
 
   const onTabKey = (e: KeyboardEvent, i: number) => {
     const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -171,102 +204,72 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
           aria-labelledby="child-tab-pick"
           className="flex flex-col gap-4 lg:gap-6"
         >
-          <div
-            role="group"
-            aria-label="Show stories"
-            className="flex flex-wrap gap-2 sm:justify-center"
-          >
-            {(["all", "folktale", "real"] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={s.filter === f}
-                onClick={() => {
-                  s.setFilter(f);
-                  if (selected && f !== "all" && selected.category !== f) s.setPreviewSlug(null);
-                }}
-                className={`min-h-11 rounded-xl border px-4 text-sm font-medium transition-colors ${
-                  s.filter === f
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-line bg-card text-foreground hover:border-primary hover:bg-tint"
-                }`}
-              >
-                {f === "all" ? "All" : CATEGORY_LABEL[f]}
-              </button>
-            ))}
-          </div>
-
-          <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {shown.map((story) => (
-              <StoryCard
-                key={story.slug}
-                story={story}
-                selected={story.slug === selected?.slug}
-                onSelect={() => {
-                  s.setPreviewSlug(story.slug);
-                  setConfirm(null);
-                }}
-              />
-            ))}
-          </ul>
-
-          {selected ? (
-            <section ref={previewRef} aria-labelledby="preview-h" className="card reveal">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-                <img
-                  src={selected.cardImage}
-                  alt=""
-                  width={480}
-                  height={360}
-                  decoding="async"
-                  className={`hidden aspect-[4/3] w-44 shrink-0 rounded-2xl sm:block ${
-                    selected.cardFit === "contain" ? "bg-white object-contain" : "object-cover"
+          <div className="flex flex-wrap items-center gap-2 sm:justify-center">
+            <div role="group" aria-label="Show stories" className="flex flex-wrap gap-2">
+              {(["all", "folktale", "real"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={s.filter === f}
+                  onClick={() => s.setFilter(f)}
+                  className={`min-h-11 rounded-xl border px-4 text-sm font-medium transition-colors ${
+                    s.filter === f
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-line bg-card text-foreground hover:border-primary hover:bg-tint"
                   }`}
+                >
+                  {f === "all" ? "All" : CATEGORY_LABEL[f]}
+                </button>
+              ))}
+            </div>
+            {lf && (
+              // A clearly indicated, removable length filter. It describes length only; shorter is not "easier".
+              <button
+                type="button"
+                onClick={() => s.setLengthFilter(null)}
+                aria-label={`Remove filter: ${lf.kind === "shorter" ? `shorter than ${lf.title}` : "short reads"}`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary bg-apricot-tint px-3 text-sm font-medium text-foreground hover:bg-tint"
+              >
+                {lf.kind === "shorter" ? `Shorter than “${lf.title}”` : "Short reads"}
+                <X className="size-4" aria-hidden />
+              </button>
+            )}
+          </div>
+          {lf?.kind === "short" && (
+            <p className="text-center text-sm text-muted-foreground">
+              Short reads are stories of up to {SHORT_READ_MAX_WORDS} words. That describes length,
+              not difficulty.
+            </p>
+          )}
+
+          {shown.length > 0 ? (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] sm:gap-4">
+              {shown.map((story) => (
+                <StoryCard
+                  key={story.slug}
+                  story={story}
+                  onOpen={() => openStory(story.slug)}
+                  setRef={(el) => {
+                    if (el) cardRefs.current.set(story.slug, el);
+                    else cardRefs.current.delete(story.slug);
+                  }}
                 />
-                <div className="min-w-0">
-                  <h2
-                    id="preview-h"
-                    tabIndex={-1}
-                    className="display-serif text-[1.5rem] leading-tight outline-none"
-                  >
-                    {selected.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {lengthLabel(selected.words)} · {selected.words} words · {selected.pageCount}{" "}
-                    pages
-                  </p>
-                  <p className="mt-3">{selected.summary}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    By {selected.credit.author} · Illustrated by {selected.credit.illustrator} ·{" "}
-                    {selected.credit.licence} · {selected.credit.sourceName}
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1">
-                    <button
-                      type="button"
-                      className="btn-primary btn-pill"
-                      onClick={() => start({ kind: "story", slug: selected.slug })}
-                    >
-                      Read this story <ArrowRight className="size-[18px]" aria-hidden />
-                    </button>
-                    <AboutStory story={selected} />
-                  </div>
-                  {confirm?.kind === "story" && confirm.slug === selected.slug && (
-                    <ConfirmInline
-                      className="mt-4"
-                      message={`Start “${selected.title}”? Your recording of ${nameOf(s.source)} will be replaced.`}
-                      confirmLabel="Replace and read"
-                      cancelLabel="Keep my recording"
-                      onConfirm={() => {
-                        setConfirm(null);
-                        s.begin(confirm);
-                      }}
-                      onCancel={() => setConfirm(null)}
-                    />
-                  )}
-                </div>
-              </div>
-            </section>
+              ))}
+            </ul>
           ) : (
+            <div role="status" className="card mx-auto w-full max-w-lg text-center">
+              <p className="display-serif text-[1.25rem]">
+                {lf?.kind === "shorter"
+                  ? `There isn’t a shorter story than “${lf.title}” in this collection yet.`
+                  : "No stories match these choices."}
+              </p>
+              <p className="mt-1 text-muted-foreground">The whole collection is still here.</p>
+              <button type="button" className="btn-primary btn-pill mt-4" onClick={clearFilters}>
+                Show all stories
+              </button>
+            </div>
+          )}
+          {shown.length > 0 && (
             <p className="text-center text-muted-foreground">
               Choose a cover to have a look inside.
             </p>
@@ -288,10 +291,7 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
               message={`Read your own story? Your recording of ${nameOf(s.source)} will be replaced.`}
               confirmLabel="Replace and read"
               cancelLabel="Keep my recording"
-              onConfirm={() => {
-                setConfirm(null);
-                s.begin(confirm);
-              }}
+              onConfirm={() => begin(confirm)}
               onCancel={() => setConfirm(null)}
             />
           )}
@@ -327,6 +327,24 @@ export function ChooseScreen({ s, onReserveBar }: Props) {
           )}
         </div>
       )}
+
+      <StoryModal
+        story={open}
+        onClose={closeStory}
+        onRead={(story) => start({ kind: "story", slug: story.slug })}
+        replacing={
+          open && confirm?.kind === "story" && confirm.slug === open.slug
+            ? {
+                message: `Start “${open.title}”? Your recording of ${nameOf(s.source)} will be replaced.`,
+              }
+            : null
+        }
+        onConfirmReplace={() => {
+          if (confirm) begin(confirm);
+        }}
+        onCancelReplace={() => setConfirm(null)}
+        returnFocus={(slug) => cardRefs.current.get(slug)?.focus({ preventScroll: true })}
+      />
     </>
   );
 }

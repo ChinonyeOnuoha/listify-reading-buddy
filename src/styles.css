@@ -364,3 +364,12 @@
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
+
+/* Dialogs (Radix) fade and zoom in; switch that off for people who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  [data-state="open"],
+  [data-state="closed"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

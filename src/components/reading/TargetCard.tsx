@@ -15,11 +15,11 @@ type Props = {
   target: number | null;
   /** Called only with a confirmed, valid target. */
   onSet: (minutes: number) => void;
-  /** Keep the companion on the card's top edge at every width (the welcome screen's side margin may be in use). */
-  perched?: boolean;
+  /** Rendered inside the card, beneath the target choices (the welcome screen puts "Try a sample session" here). */
+  footer?: ReactNode;
 };
 
-export function TargetCard({ target, onSet, perched = false }: Props) {
+export function TargetCard({ target, onSet, footer }: Props) {
   const [custom, setCustom] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -72,7 +72,13 @@ export function TargetCard({ target, onSet, perched = false }: Props) {
     onSet(n);
   };
 
-  const choice = (key: string, label: string, pressed: boolean, onClick: () => void, children: ReactNode) => (
+  const choice = (
+    key: string,
+    label: string,
+    pressed: boolean,
+    onClick: () => void,
+    children: ReactNode,
+  ) => (
     <button
       key={key}
       type="button"
@@ -91,74 +97,84 @@ export function TargetCard({ target, onSet, perched = false }: Props) {
   );
 
   return (
-    <CompanionPerch pose="wave" animate perched={perched}>
-    <section className="card" aria-labelledby="target-h">
-      <h2 id="target-h" className="text-xl font-semibold">Today's reading target</h2>
-      <p className="mt-1 text-muted-foreground">How much time would you like to read today?</p>
+    <CompanionPerch pose="wave" animate>
+      <section className="card" aria-labelledby="target-h">
+        <h2 id="target-h" className="text-xl font-semibold">
+          Today's reading target
+        </h2>
+        <p className="mt-1 text-muted-foreground">How much time would you like to read today?</p>
 
-      <div role="group" aria-labelledby="target-h" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {PRESETS.map((m) =>
-          choice(
-            String(m),
-            `${m} min`,
-            false,
-            () => onSet(m),
-            <>
-              <span className="text-[1.625rem] leading-none font-semibold text-heading" aria-hidden>
-                {m}
-              </span>
-              <span className="text-sm text-muted-foreground" aria-hidden>
-                min
-              </span>
-            </>,
-          ),
-        )}
-        {choice(
-          "custom",
-          "Custom",
-          custom,
-          () => setCustom(true),
-          <>
-            <span className="font-semibold text-heading">Custom</span>
-            <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
-          </>,
-        )}
-      </div>
-
-      {custom && (
-        <form onSubmit={submitCustom} className="reveal mt-6" noValidate>
-          <label htmlFor="custom-minutes" className="font-medium">
-            Minutes
-          </label>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <input
-              id="custom-minutes"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={MAX}
-              value={draft}
-              autoFocus
-              onChange={(e) => {
-                setDraft(e.target.value);
-                if (error) setError("");
-              }}
-              aria-invalid={!!error}
-              aria-describedby={error ? "custom-error" : undefined}
-              className="field w-28"
-            />
-            <button type="submit" className="btn-secondary">
-              Set target
-            </button>
-          </div>
-          {error && (
-            <p id="custom-error" role="alert" className="mt-2 text-sm text-destructive">
-              {error}
-            </p>
+        <div
+          role="group"
+          aria-labelledby="target-h"
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
+          {PRESETS.map((m) =>
+            choice(
+              String(m),
+              `${m} min`,
+              false,
+              () => onSet(m),
+              <>
+                <span
+                  className="text-[1.625rem] leading-none font-semibold text-heading"
+                  aria-hidden
+                >
+                  {m}
+                </span>
+                <span className="text-sm text-muted-foreground" aria-hidden>
+                  min
+                </span>
+              </>,
+            ),
           )}
-        </form>
-      )}
-    </section>
+          {choice(
+            "custom",
+            "Custom",
+            custom,
+            () => setCustom(true),
+            <>
+              <span className="font-semibold text-heading">Custom</span>
+              <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
+            </>,
+          )}
+        </div>
+
+        {custom && (
+          <form onSubmit={submitCustom} className="reveal mt-6" noValidate>
+            <label htmlFor="custom-minutes" className="font-medium">
+              Minutes
+            </label>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <input
+                id="custom-minutes"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX}
+                value={draft}
+                autoFocus
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  if (error) setError("");
+                }}
+                aria-invalid={!!error}
+                aria-describedby={error ? "custom-error" : undefined}
+                className="field w-28"
+              />
+              <button type="submit" className="btn-secondary">
+                Set target
+              </button>
+            </div>
+            {error && (
+              <p id="custom-error" role="alert" className="mt-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+          </form>
+        )}
+        {footer}
+      </section>
     </CompanionPerch>
   );
 }

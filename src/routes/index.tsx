@@ -28,7 +28,11 @@ export const Route = createFileRoute("/")({
           "A reading-practice prototype: set a reading target, bring a passage, record yourself reading aloud and listen back. AI feedback and text extraction are not connected yet.",
       },
       { property: "og:title", content: "Reading Buddy — a reading-practice prototype" },
-      { property: "og:description", content: "A prototype for practising reading aloud: record yourself and listen back. AI feedback is not connected yet." },
+      {
+        property: "og:description",
+        content:
+          "A prototype for practising reading aloud: record yourself and listen back. AI feedback is not connected yet.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -96,7 +100,8 @@ function Index() {
       const here = (window.history.state as { rb?: string } | null)?.rb;
       if (here === "children") {
         // Forward into the corner is never allowed while a main-session recording is still open.
-        if (cornerRef.current === "adult" && adultRecRef.current.unfinished) return window.history.back();
+        if (cornerRef.current === "adult" && adultRecRef.current.unfinished)
+          return window.history.back();
         return setCorner("children");
       }
       if (cornerRef.current === "children") {
@@ -299,9 +304,23 @@ function Index() {
     </header>
   );
 
-  // The welcome screen shows the target card with the doorway invitation beside it on wide screens.
-  const doorwayBeside = !inChildren && !sample && view === "prepare" && !contentReady && target === null;
-  const childBar = inChildren && child.view === "choose" && child.tab === "own" && child.canContinue;
+  /** "Just exploring? Try a sample session →" (used in the target card on wide screens and below the doorway on phones). */
+  const sampleLink = (
+    <>
+      Just exploring?{" "}
+      <button
+        className="text-link inline-flex items-center gap-1"
+        onClick={() => setSample("read")}
+      >
+        Try a sample session <ArrowRight className="size-4" aria-hidden />
+      </button>
+    </>
+  );
+  // The welcome screen: the target card, with the doorway invitation below it.
+  const targetCardShown =
+    !inChildren && !sample && view === "prepare" && !contentReady && target === null;
+  const childBar =
+    inChildren && child.view === "choose" && child.tab === "own" && child.canContinue;
   const childDock = inChildren && child.view === "read";
   const mainWidth = sample
     ? sample === "read"
@@ -315,9 +334,7 @@ function Index() {
           : "max-w-3xl"
       : view === "read"
         ? "max-w-6xl"
-        : doorwayBeside
-          ? "max-w-3xl lg:max-w-5xl"
-          : "max-w-3xl";
+        : "max-w-3xl";
 
   // Room the fixed bottom bar (Continue / recording dock) needs, reserved under the footer so nothing slides beneath it.
   const reserved =
@@ -446,7 +463,7 @@ function Index() {
                       </button>
                     </section>
                   </CompanionPerch>
-                  <DoorwayInvite layout="row" onEnter={enterChildren} />
+                  <DoorwayInvite onEnter={enterChildren} />
                 </>
               )}
 
@@ -454,11 +471,20 @@ function Index() {
                 <>
                   {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
 
-                  {doorwayBeside ? (
-                    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-8">
-                      <TargetCard target={target} onSet={setTarget} perched />
-                      <DoorwayInvite layout="beside" onEnter={enterChildren} />
-                    </div>
+                  {targetCardShown ? (
+                    <>
+                      <TargetCard
+                        target={target}
+                        onSet={setTarget}
+                        footer={
+                          // Wide screens: inside the card, beneath the target choices. Phones keep it below the doorway.
+                          <p className="mt-6 hidden text-center text-muted-foreground lg:block">
+                            {sampleLink}
+                          </p>
+                        }
+                      />
+                      <DoorwayInvite onEnter={enterChildren} />
+                    </>
                   ) : (
                     <TargetCard target={target} onSet={setTarget} />
                   )}
@@ -496,18 +522,14 @@ function Index() {
               )}
 
               {view === "prepare" && target !== null && !contentReady && (
-                <DoorwayInvite layout="row" onEnter={enterChildren} />
+                <DoorwayInvite onEnter={enterChildren} />
               )}
 
               {(view === "prepare" || view === "home") && (
-                <p className="mt-2 text-center text-muted-foreground">
-                  Just exploring?{" "}
-                  <button
-                    className="text-link inline-flex items-center gap-1"
-                    onClick={() => setSample("read")}
-                  >
-                    Try a sample session <ArrowRight className="size-4" aria-hidden />
-                  </button>
+                <p
+                  className={`mt-2 text-center text-muted-foreground ${targetCardShown ? "lg:hidden" : ""}`}
+                >
+                  {sampleLink}
                 </p>
               )}
 
@@ -605,13 +627,13 @@ function Index() {
       >
         {homeDialog === "failed" ? (
           <p>
-            {activeRec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and
-            content are still here.
+            {activeRec.problem ?? "No audio was captured, so there's nothing to keep."} Your target
+            and content are still here.
           </p>
         ) : (
           <p>
-            Going home will finish your {activeRec.state === "paused" ? "paused " : ""}recording and keep
-            it. Your recording and session will stay available in this {place}.
+            Going home will finish your {activeRec.state === "paused" ? "paused " : ""}recording and
+            keep it. Your recording and session will stay available in this {place}.
           </p>
         )}
       </SessionDialog>
@@ -628,15 +650,16 @@ function Index() {
         {inChildren ? (
           <>
             <p>
-              Your chosen story, any pages or text you added here, and your recording from the children’s corner will be cleared. This
-              can’t be undone.
+              Your chosen story, any pages or text you added here, and your recording from the
+              children’s corner will be cleared. This can’t be undone.
             </p>
             {hasSession && <p>Your main Reading Buddy session isn’t affected.</p>}
           </>
         ) : (
           <>
             <p>
-              Your reading target, added content and any recording will be cleared. This can't be undone.
+              Your reading target, added content and any recording will be cleared. This can't be
+              undone.
             </p>
             {child.hasSession && <p>Your children’s corner session isn’t affected.</p>}
           </>

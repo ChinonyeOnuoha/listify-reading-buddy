@@ -59,7 +59,7 @@ Considered and **left out**:
 
 ## Other assets
 
-- **Doorway illustration** (`public/illustrations/doorway.png`, 252 × 232 px): cropped from the approved concept image supplied for this feature, with its paper-coloured background made transparent. It is therefore **low resolution** (fine at the small sizes used, slightly soft on large high-density screens). A higher-resolution original or a vector version would be needed for anything larger.
+- **Doorway illustration** (`src/components/children/DoorwayArt.tsx`): an inline vector drawing made for this app (arch, starry opening, open door; the bookmark companion is the real component). It replaced a low-resolution crop of the approved concept image, which was deleted rather than enlarged. **Outstanding asset:** a cleaner, higher-resolution painterly original that matches the bookmark character; until it is supplied the vector drawing stands in.
 - **Bookmark companion:** the app’s own SVG drawing (see [design-system.md](design-system.md)).
 - **No paid or generated content** was used for stories, covers or text.
 
