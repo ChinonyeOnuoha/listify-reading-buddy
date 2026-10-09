@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Lock, LogOut } from "lucide-react";
+import { ChildrenCorner } from "@/components/children/ChildrenCorner";
+import { DoorwayInvite } from "@/components/children/DoorwayInvite";
+import { useChildSession } from "@/components/children/useChildSession";
 import { BookMark } from "@/components/reading/BookMark";
 import { CompanionPerch } from "@/components/reading/Companion";
 import { InstallButton } from "@/components/reading/InstallButton";
@@ -49,6 +52,19 @@ function Index() {
   const [images, setImages] = useState<PageImage[]>([]);
   const rec = useRecorder(() => setView("review"));
   const pwa = usePwa();
+  // The children's reading corner has its own session (own recorder, content and review), kept separately in this tab.
+  // Entering or leaving it never reads or writes the main session above, and discarding one never discards the other.
+  const child = useChildSession();
+  const [corner, setCorner] = useState<"adult" | "children">("adult");
+  const inChildren = corner === "children";
+  const activeRec = inChildren ? child.rec : rec;
+  const cornerRef = useRef(corner);
+  cornerRef.current = corner;
+  const childRecRef = useRef(child.rec);
+  childRecRef.current = child.rec;
+  const adultRecRef = useRef(rec);
+  adultRecRef.current = rec;
+  const leavingRef = useRef(false);
   // Installed or not, the session lives in memory only — wording follows where it's running.
   const place = pwa.standalone ? "app" : "tab";
 
@@ -58,6 +74,8 @@ function Index() {
 
   const hasSession =
     target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.unfinished;
+  /** Whether the session you are currently in has anything in it (what Exit session would discard). */
+  const activeHasSession = inChildren ? child.hasSession : hasSession;
 
   // Review playback position, kept while visiting sample feedback (reset for a new recording).
   const [reviewPos, setReviewPos] = useState(0);
@@ -72,11 +90,45 @@ function Index() {
     if ((window.history.state as { rb?: string } | null)?.rb === "samples") window.history.back();
     else setView("review");
   };
+  // Browser Back/Forward also move in and out of the children's corner (it has a history entry of its own).
   useEffect(() => {
-    const onPop = () => setView((v) => (v === "samples" ? "review" : v));
+    const onPop = () => {
+      const here = (window.history.state as { rb?: string } | null)?.rb;
+      if (here === "children") {
+        // Forward into the corner is never allowed while a main-session recording is still open.
+        if (cornerRef.current === "adult" && adultRecRef.current.unfinished) return window.history.back();
+        return setCorner("children");
+      }
+      if (cornerRef.current === "children") {
+        if (leavingRef.current) {
+          leavingRef.current = false;
+          return setCorner("adult");
+        }
+        // Back out of the corner mid-recording: stay put and explain first (the recording is finished and kept).
+        if (childRecRef.current.unfinished) {
+          window.history.pushState({ rb: "children" }, "");
+          return setHomeDialog("confirm");
+        }
+        pauseAllAudio();
+        return setCorner("adult");
+      }
+      setView((v) => (v === "samples" ? "review" : v));
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+  const enterChildren = () => {
+    pauseAllAudio();
+    window.history.pushState({ rb: "children" }, "");
+    setCorner("children");
+  };
+  const leaveChildren = () => {
+    pauseAllAudio();
+    if ((window.history.state as { rb?: string } | null)?.rb === "children") {
+      leavingRef.current = true;
+      window.history.back();
+    } else setCorner("adult");
+  };
   // Focus the new screen's heading when moving between Review and sample feedback.
   const prevView = useRef<View>(view);
   useEffect(() => {
@@ -124,12 +176,12 @@ function Index() {
   const [barSpace, setBarSpace] = useState(0);
   // Space the phone recording dock needs at the bottom of the reading screen.
   const [dockSpace, setDockSpace] = useState(0);
-  const showBar = view === "prepare" && !sample && canContinue;
+  const showBar = view === "prepare" && !sample && !inChildren && canContinue;
 
   // Each view and sample stage starts at the top; the sticky header stays put.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [view, sample]);
+  }, [view, sample, corner]);
 
   // When the target is first set, keyboard and screen-reader users land on the newly revealed card.
   const hadTarget = useRef(false);
@@ -145,6 +197,7 @@ function Index() {
 
   const goHome = () => {
     pauseAllAudio();
+    if (inChildren) return leaveChildren();
     if (view !== "home") setResumeTo(view);
     setView(hasSession ? "home" : "prepare");
   };
@@ -155,7 +208,7 @@ function Index() {
       setView(hasSession ? "home" : "prepare");
       return;
     }
-    if (rec.unfinished) return setHomeDialog("confirm");
+    if (activeRec.unfinished) return setHomeDialog("confirm");
     goHome();
   };
   const stopAndGoHome = async () => {
@@ -165,11 +218,15 @@ function Index() {
       return;
     }
     setStopping(true);
-    const kept = await rec.finishQuietly(); // finishes (recording or paused), keeps the audio, releases the mic
+    const kept = await activeRec.finishQuietly(); // finishes (recording or paused), keeps the audio, releases the mic
     setStopping(false);
     if (!kept) return setHomeDialog("failed"); // explain before navigating away
     setHomeDialog(null);
     pauseAllAudio();
+    if (inChildren) {
+      child.setView("review"); // coming back opens the finished recording — it never restarts recording
+      return leaveChildren();
+    }
     setResumeTo("review"); // Resume opens the finished recording — it never restarts recording
     setView("home");
   };
@@ -180,6 +237,15 @@ function Index() {
   const [focusWelcome, setFocusWelcome] = useState(false);
 
   const discardSession = () => {
+    if (inChildren) {
+      // Only the children's session goes; the main session is untouched.
+      child.discard();
+      pauseAllAudio();
+      setHomeDialog(null);
+      setExitOpen(false);
+      requestAnimationFrame(() => document.getElementById("child-h")?.focus());
+      return;
+    }
     sessionGen.current += 1;
     rec.discard(); // stops recording without keeping it, releases the mic, revokes audio
     pauseAllAudio();
@@ -233,11 +299,31 @@ function Index() {
     </header>
   );
 
+  // The welcome screen shows the target card with the doorway invitation beside it on wide screens.
+  const doorwayBeside = !inChildren && !sample && view === "prepare" && !contentReady && target === null;
+  const childBar = inChildren && child.view === "choose" && child.tab === "own" && child.canContinue;
+  const childDock = inChildren && child.view === "read";
+  const mainWidth = sample
+    ? sample === "read"
+      ? "max-w-6xl"
+      : "max-w-3xl"
+    : inChildren
+      ? child.view === "read"
+        ? "max-w-6xl"
+        : child.view === "choose"
+          ? "max-w-5xl"
+          : "max-w-3xl"
+      : view === "read"
+        ? "max-w-6xl"
+        : doorwayBeside
+          ? "max-w-3xl lg:max-w-5xl"
+          : "max-w-3xl";
+
   // Room the fixed bottom bar (Continue / recording dock) needs, reserved under the footer so nothing slides beneath it.
   const reserved =
-    showBar && barSpace
+    (showBar || childBar) && barSpace
       ? barSpace + 24
-      : view === "read" && !sample && dockSpace
+      : ((view === "read" && !sample && !inChildren) || childDock) && dockSpace
         ? dockSpace + 16
         : undefined;
 
@@ -278,14 +364,14 @@ function Index() {
               </div>
             ) : (
               <div className="flex items-center gap-2 sm:gap-3">
-                {(view === "prepare" || view === "home") && !pwa.standalone && (
+                {!inChildren && (view === "prepare" || view === "home") && !pwa.standalone && (
                   <InstallButton
                     canInstall={pwa.canInstall}
                     ios={pwa.ios}
                     onInstall={() => void pwa.install()}
                   />
                 )}
-                {hasSession && (
+                {activeHasSession && (
                   <button ref={exitRef} className="btn-header" onClick={() => setExitOpen(true)}>
                     <LogOut className="size-4" aria-hidden /> Exit session
                   </button>
@@ -296,9 +382,7 @@ function Index() {
         </header>
 
         <main
-          className={`mx-auto flex w-full flex-col gap-4 px-4 py-8 sm:px-6 sm:py-12 lg:gap-6 ${
-            (sample ? sample === "read" : view === "read") ? "max-w-6xl" : "max-w-3xl"
-          }`}
+          className={`mx-auto flex w-full flex-col gap-4 px-4 py-8 sm:px-6 sm:py-12 lg:gap-6 ${mainWidth}`}
         >
           {!pwa.online && (
             <p role="status" className="rounded-2xl border border-border bg-card px-4 py-2 text-sm">
@@ -309,8 +393,8 @@ function Index() {
           {shouldOfferUpdate({
             updateReady: pwa.updateReady,
             sample: !!sample,
-            hasSession,
-            view,
+            hasSession: hasSession || child.hasSession,
+            view: inChildren ? "read" : view,
           }) && (
             <p
               role="status"
@@ -323,7 +407,14 @@ function Index() {
             </p>
           )}
 
-          {sample ? (
+          {inChildren ? (
+            <ChildrenCorner
+              s={child}
+              onDone={onLogo}
+              onReserveBar={setBarSpace}
+              onReserveDock={setDockSpace}
+            />
+          ) : sample ? (
             <SampleSession
               stage={sample}
               setStage={setSample}
@@ -355,6 +446,7 @@ function Index() {
                       </button>
                     </section>
                   </CompanionPerch>
+                  <DoorwayInvite layout="row" onEnter={enterChildren} />
                 </>
               )}
 
@@ -362,7 +454,14 @@ function Index() {
                 <>
                   {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
 
-                  <TargetCard target={target} onSet={setTarget} />
+                  {doorwayBeside ? (
+                    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-8">
+                      <TargetCard target={target} onSet={setTarget} perched />
+                      <DoorwayInvite layout="beside" onEnter={enterChildren} />
+                    </div>
+                  ) : (
+                    <TargetCard target={target} onSet={setTarget} />
+                  )}
 
                   {target !== null && (
                     <PrepareStep
@@ -394,6 +493,10 @@ function Index() {
                     <ContinueBar onContinue={() => setView("read")} onReserve={setBarSpace} />
                   )}
                 </>
+              )}
+
+              {view === "prepare" && target !== null && !contentReady && (
+                <DoorwayInvite layout="row" onEnter={enterChildren} />
               )}
 
               {(view === "prepare" || view === "home") && (
@@ -474,7 +577,7 @@ function Index() {
             <Lock className="mr-1.5 -mt-0.5 inline size-4" aria-hidden />
             Your content stays in this {place}. Nothing is uploaded.
           </p>
-          {!sample && hasSession && view !== "home" && (
+          {!sample && activeHasSession && (inChildren || view !== "home") && (
             <p className="mt-0.5">
               {pwa.standalone
                 ? "Closing the app clears your session."
@@ -491,7 +594,7 @@ function Index() {
         cancelLabel={
           homeDialog === "failed"
             ? "Stay here"
-            : rec.state === "paused"
+            : activeRec.state === "paused"
               ? "Stay here"
               : "Keep recording"
         }
@@ -502,12 +605,12 @@ function Index() {
       >
         {homeDialog === "failed" ? (
           <p>
-            {rec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and
+            {activeRec.problem ?? "No audio was captured, so there's nothing to keep."} Your target and
             content are still here.
           </p>
         ) : (
           <p>
-            Going home will finish your {rec.state === "paused" ? "paused " : ""}recording and keep
+            Going home will finish your {activeRec.state === "paused" ? "paused " : ""}recording and keep
             it. Your recording and session will stay available in this {place}.
           </p>
         )}
@@ -516,19 +619,31 @@ function Index() {
       <SessionDialog
         open={exitOpen}
         onOpenChange={setExitOpen}
-        title="Leave this session?"
+        title={inChildren ? "Leave the children’s corner?" : "Leave this session?"}
         cancelLabel="Stay in session"
         confirmLabel="Leave and discard"
         onConfirm={discardSession}
         returnFocus={exitRef}
       >
-        <p>
-          Your reading target, added content and any recording will be cleared. This can't be
-          undone.
-        </p>
-        {rec.unfinished && (
+        {inChildren ? (
+          <>
+            <p>
+              Your chosen story, any pages or text you added here, and your recording from the children’s corner will be cleared. This
+              can’t be undone.
+            </p>
+            {hasSession && <p>Your main Reading Buddy session isn’t affected.</p>}
+          </>
+        ) : (
+          <>
+            <p>
+              Your reading target, added content and any recording will be cleared. This can't be undone.
+            </p>
+            {child.hasSession && <p>Your children’s corner session isn’t affected.</p>}
+          </>
+        )}
+        {activeRec.unfinished && (
           <p className="font-medium text-foreground">
-            {rec.state === "paused"
+            {activeRec.state === "paused"
               ? "You have a paused recording — leaving will discard it."
               : "You're recording right now — leaving will stop and discard it."}
           </p>

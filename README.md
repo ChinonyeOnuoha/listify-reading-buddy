@@ -11,6 +11,7 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 - **Playback:** listen back on the review screen; re-record or start a new session (each asks first).
 - **Sessions:** the logo returns home and **Resume session** brings you back; **Exit session** is the only way to discard everything.
 - **A sample session** to look around without a microphone, with clearly labelled, made-up sample feedback.
+- **A children’s reading corner**, entered through a quiet “doorway” on the welcome screen: pick one of eight openly licensed illustrated stories (or bring your own), read aloud with the same recorder, then listen back — with no timed target, scores or claims. It keeps its own separate session. See [docs/children-corner.md](docs/children-corner.md).
 - **Installable and offline-capable** as a web app in supported browsers.
 
 ## What is not connected yet
@@ -18,7 +19,7 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 - **No automatic text extraction** from page photos: uploaded pages are shown as images for you to read from.
 
 ## Privacy and your session
-Your passage, page photos and recordings stay in this browser tab (or the installed app window). They are kept in memory only, are **not uploaded**, and nothing is sent for AI processing. **Closing or reloading the tab clears the session** — nothing is saved between visits.
+Your passage, page photos and recordings (including those in the children’s corner) stay in this browser tab (or the installed app window). They are kept in memory only, are **not uploaded**, and nothing is sent for AI processing. **Closing or reloading the tab clears the session** — nothing is saved between visits.
 
 Loading the page does contact Google Fonts for its typefaces (one stylesheet and four font files), so Google sees ordinary request details such as your IP address. Details, and what was and wasn't checked, are in [docs/architecture.md](docs/architecture.md#privacy-and-network-behaviour).
 
@@ -34,6 +35,7 @@ A development-only experiment checks whether free on-device speech recognition c
 
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it
+- [Children’s reading corner](docs/children-corner.md) and its [story manifest and licence review](docs/children-corner-content.md)
 - [Design system](docs/design-system.md) — palette, type, surfaces, the bookmark companion and its interaction
 - [Architecture](docs/architecture.md) — structure, how recording and the offline app work, privacy and network behaviour
 - [Accessibility notes](docs/accessibility.md) — what is built in and what is not yet verified

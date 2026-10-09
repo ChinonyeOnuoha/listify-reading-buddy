@@ -1,5 +1,7 @@
 # User flow and behaviour
 
+The children’s reading corner (entered from the welcome screen’s “A doorway to stories”) has its own flow and its own session; it is described in [children-corner.md](children-corner.md). This page describes the main flow.
+
 What each screen does and the rules behind it. This describes the app as it is now; it is a reference, not a change history. For the design language see [design-system.md](design-system.md), for how it is built see [architecture.md](architecture.md), and for accessibility decisions see [accessibility.md](accessibility.md).
 
 ## How a session works

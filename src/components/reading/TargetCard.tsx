@@ -15,9 +15,11 @@ type Props = {
   target: number | null;
   /** Called only with a confirmed, valid target. */
   onSet: (minutes: number) => void;
+  /** Keep the companion on the card's top edge at every width (the welcome screen's side margin may be in use). */
+  perched?: boolean;
 };
 
-export function TargetCard({ target, onSet }: Props) {
+export function TargetCard({ target, onSet, perched = false }: Props) {
   const [custom, setCustom] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -89,7 +91,7 @@ export function TargetCard({ target, onSet }: Props) {
   );
 
   return (
-    <CompanionPerch pose="wave" animate>
+    <CompanionPerch pose="wave" animate perched={perched}>
     <section className="card" aria-labelledby="target-h">
       <h2 id="target-h" className="text-xl font-semibold">Today's reading target</h2>
       <p className="mt-1 text-muted-foreground">How much time would you like to read today?</p>

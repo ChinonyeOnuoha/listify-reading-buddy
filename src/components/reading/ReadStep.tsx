@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { ArrowLeft, Check, Headphones, Loader2, Mic, Pause, Play, Square, Upload } from "lucide-react";
 import { Companion } from "./Companion";
 import { ConfirmInline } from "./ConfirmInline";
@@ -7,10 +7,16 @@ import type { PageImage } from "./PrepareStep";
 import { formatTime, type RecState } from "./useRecorder";
 
 type Props = {
-  mode: "paste" | "upload";
-  text: string;
-  images: PageImage[];
-  target: number;
+  mode?: "paste" | "upload";
+  text?: string;
+  images?: PageImage[];
+  /** Replaces the passage area (the children's corner shows its own illustrated stories here). */
+  passage?: ReactNode;
+  /** Label of the passage region and of the back button; defaults suit the adult flow. */
+  passageLabel?: string;
+  backLabel?: string;
+  /** Minutes, or null for no target at all: then there is no progress bar, no "of N min" and no "target reached". */
+  target: number | null;
   recState: RecState;
   micError: boolean;
   problem: string | null;
@@ -44,7 +50,7 @@ export function ReadStep(p: Props) {
   const hasTake = p.takeDuration !== null;
   // The timer shows recorded time only; when idle with a recording, that recording's length.
   const shown = unfinished ? p.elapsed : (p.takeDuration ?? 0);
-  const pct = Math.min(100, (shown / (p.target * 60)) * 100);
+  const pct = p.target ? Math.min(100, (shown / (p.target * 60)) * 100) : 0;
 
   // Measure the phone dock so the passage always has room to scroll clear of it (rotation, chrome changes, messages).
   useEffect(() => {
@@ -153,7 +159,7 @@ export function ReadStep(p: Props) {
     s === "starting"
       ? "Starting…"
       : s === "recording"
-        ? pct >= 100
+        ? p.target && pct >= 100
           ? "Target reached — keep going"
           : "Recording"
         : s === "paused"
@@ -172,7 +178,7 @@ export function ReadStep(p: Props) {
 
   const friendly =
     s === "recording"
-      ? pct >= 100
+      ? p.target && pct >= 100
         ? "Target reached 🎯 Keep going as long as you like."
         : "I'm recording 🎙️ Take your time."
       : s === "paused"
@@ -214,12 +220,12 @@ export function ReadStep(p: Props) {
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-[30px]">
       {/* Passage first on every screen. */}
-      <section aria-label="Your passage" className="card min-w-0">
+      <section aria-label={p.passageLabel ?? "Your passage"} className="card min-w-0">
         <button className="btn-quiet -mt-2 -ml-3" onClick={p.onBack} disabled={unfinished}>
-          <ArrowLeft className="size-4" aria-hidden /> Edit passage
+          <ArrowLeft className="size-4" aria-hidden /> {p.backLabel ?? "Edit passage"}
         </button>
         <div className="mt-4">
-          <PassageView text={p.mode === "paste" ? p.text : undefined} images={p.mode === "upload" ? p.images : undefined} />
+          {p.passage ?? <PassageView text={p.mode === "paste" ? p.text : undefined} images={p.mode === "upload" ? p.images : undefined} />}
         </div>
       </section>
 
@@ -243,10 +249,10 @@ export function ReadStep(p: Props) {
                 <span className="truncate">{status}</span>
               </span>
               <span className="shrink-0 text-muted-foreground tabular-nums">
-                <span className="font-semibold text-foreground">{formatTime(shown)}</span> / {p.target} min
+                <span className="font-semibold text-foreground">{formatTime(shown)}</span>{p.target ? ` / ${p.target} min` : ""}
               </span>
             </div>
-            {progress("mt-1.5 h-1.5")}
+            {p.target ? progress("mt-1.5 h-1.5") : null}
             {alert && (
               <p role="alert" className="mt-1.5 text-xs text-foreground">
                 {alert}
@@ -287,8 +293,8 @@ export function ReadStep(p: Props) {
           {status}
         </p>
         <div className="mt-2 text-[2rem] leading-none font-semibold tabular-nums">{formatTime(shown)}</div>
-        <div className="mt-2 text-muted-foreground">of {p.target} min target</div>
-        {progress("mt-4 h-2")}
+        {p.target ? <div className="mt-2 text-muted-foreground">of {p.target} min target</div> : null}
+        {p.target ? progress("mt-4 h-2") : null}
         {alert && (
           <p role="alert" className="mt-3 text-sm">
             {alert}

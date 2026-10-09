@@ -224,19 +224,26 @@ export function Companion({ interactive = false, ...art }: Props) {
 export function CompanionPerch({
   pose,
   animate,
+  perched = false,
   children,
 }: {
   pose: CompanionPose;
   animate?: boolean;
+  /** Stay on the card's top edge at every width (used when something else occupies the side margin). */
+  perched?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="relative mt-12 lg:mt-0">
+    <div className={perched ? "relative mt-12" : "relative mt-12 lg:mt-0"}>
       <Companion
         pose={pose}
         interactive
         {...(animate ? { animate } : {})}
-        className="absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
+        className={
+          perched
+            ? "absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14"
+            : "absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
+        }
       />
       {children}
     </div>

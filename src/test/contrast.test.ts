@@ -34,6 +34,7 @@ const white = "#ffffff";
 
 const TEXT: [string, string, string][] = [
   ["ink-text", "page", page], ["ink-text", "card", card], ["ink-text", "tint", tint], ["ink-text", "white field", white], ["ink-text", "apricot-tint chip", apricotTint],
+  ["ink-text", "muted (segmented control)", muted],
   ["ink-heading", "page", page], ["ink-heading", "card", card], ["ink-heading", "tint", tint],
   ["ink-support", "page", page], ["ink-support", "card", card], ["ink-support", "tint", tint], ["ink-support", "muted", muted],
   ["ink", "page", page], ["ink", "card", card], ["ink", "tint", tint],

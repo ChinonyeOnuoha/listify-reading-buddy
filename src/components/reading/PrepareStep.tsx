@@ -26,6 +26,8 @@ type Props = {
   /** Session generation when this card rendered; uploads that finish after a discard are dropped. */
   generation: number;
   isCurrentSession: (g: number) => boolean;
+  /** Optional wording for the children's corner; the adult flow passes nothing and keeps its own. */
+  copy?: { title: string; pasteHint: string; uploadHint: string };
 };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -118,10 +120,13 @@ export function PrepareStep(p: Props) {
     if (p.text.trim()) p.onPasteCommit();
   };
 
-  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string) => (
+  const choice = (m: Exclude<InputMode, null>, Icon: typeof Upload, label: string, hint?: string) => (
     <button type="button" aria-pressed={p.mode === m} onClick={() => p.onSelectMode(m)} className="tile relative items-center">
       <Icon className="size-5 shrink-0 text-primary" aria-hidden />
-      <span className="min-w-0 pr-6 font-medium">{label}</span>
+      <span className="min-w-0 pr-6">
+        <span className="font-medium">{label}</span>
+        {hint && <span className="block text-sm text-muted-foreground">{hint}</span>}
+      </span>
       {p.mode === m && (
         <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="size-3" strokeWidth={3} aria-hidden />
@@ -157,7 +162,11 @@ export function PrepareStep(p: Props) {
     </div>
   );
 
-  const title = p.collapsed ? (p.mode === "upload" ? "Your pages" : "Your content") : "Bring something to read";
+  const title = p.collapsed
+    ? p.mode === "upload"
+      ? "Your pages"
+      : "Your content"
+    : (p.copy?.title ?? "Bring something to read");
 
   // Structure stays stable across states so the text editor is never remounted (focus and caret survive).
   return (
@@ -188,8 +197,8 @@ export function PrepareStep(p: Props) {
       {!p.collapsed && (
         <div className="reveal" data-input-choices>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5" role="group" aria-label="How to add your passage">
-            {choice("paste", ClipboardPaste, "Paste text")}
-            {choice("upload", Upload, "Upload pages")}
+            {choice("paste", ClipboardPaste, "Paste text", p.copy?.pasteHint)}
+            {choice("upload", Upload, "Upload pages", p.copy?.uploadHint)}
           </div>
         </div>
       )}

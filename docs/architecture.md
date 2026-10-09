@@ -7,6 +7,7 @@ Main parts:
 - `src/routes/index.tsx` — the session state (target, content, recording) and the screens' wiring.
 - `src/components/reading/` — one component per step (`TargetCard`, `PrepareStep`, `PageGallery`, `ReadStep`, `ReviewStep`, `SampleSession`, `SampleFeedback`), `useRecorder` (recording), `Companion` (the bookmark character).
 - `src/lib/pwa.ts` — install, offline and update state. `tools/` — the service-worker template and the build plugin that stamps it.
+- `src/components/children/`, `src/content/stories/` — the children’s reading corner and its eight built-in stories (see [children-corner.md](children-corner.md)). Story text is one small module per story, loaded only when that story opens; pictures live in `public/stories/` and load lazily page by page.
 - `lab/` — the development-only AI feasibility lab (see [ai-feasibility.md](ai-feasibility.md)); it has its own Vite root and is not part of the app.
 
 ## How recording works (and why)
@@ -29,7 +30,8 @@ Reading Buddy has no accounts, database or backend of its own for user content. 
 What was checked, and how:
 - **Source inspection:** the app code (`src/`, excluding tests) contains no `fetch`, `XMLHttpRequest`, `sendBeacon` or WebSocket calls for user content. The only `fetch` is the server entry's request handler.
 - **Observed on a real page load (dev server, 2026-10-08):** besides the app's own files, the page requests **one Google Fonts stylesheet from `fonts.googleapis.com` and four font files from `fonts.gstatic.com`** (DM Serif Display, two Fraunces files, Manrope). Loading fonts this way means Google receives ordinary request details such as the visitor's IP address and browser. They could be self-hosted to remove this; that has not been done. The production build's head and service worker were also read and reference only these hosts.
-- **Service worker:** caches the app's own files and the Google Fonts responses. It never sees passages, photos or recordings.
+- **Service worker:** caches the app's own files, the welcome screen's doorway art and the Google Fonts responses. It never sees passages, photos or recordings. Story pictures are *not* cached, so they need a connection (the story text is part of the cached scripts).
+- **Children’s corner:** the stories, covers and doorway are served from the app’s own origin; the corner adds no third-party request. Its source links (About this story) are ordinary links that open only when clicked.
 - **Lovable's editor preview:** the app's error boundary forwards a runtime error's message, stack and route path to a reporting hook *if* one exists on the page (`src/lib/lovable-error-reporting.ts`). That hook is only present inside Lovable's editor preview; it is not part of this app, and what Lovable's tooling does with it was not inspected. No passage, photo or recording content is passed to it.
 - **Not checked:** requests made by a hosting platform's own scripts or headers outside the app's code, and any browser extension behaviour.
 

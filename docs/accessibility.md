@@ -16,6 +16,8 @@ What the app does for accessibility, and what has and hasn't been verified. This
 - **Layout.** Fixed bars (Continue bar, recording dock) reserve their measured height so they never cover content, including with the iPhone safe area and on short landscape screens; the header slims on short screens.
 - **Privacy wording** is plain text in a footer, not an icon-only cue.
 
+- **Children's corner.** Built-in stories are real text (not text in images) so they resize and can be read by assistive technology; pictures are decorative (empty alt text — descriptive alt text is an open item). **A−/A+** are labelled buttons (44 px, `aria-disabled` at the limits so focus is kept, with a polite announcement of the size). The story/own-content choice is a tab list with arrow-key navigation; filters and story covers are toggle buttons (`aria-pressed`, with a checkmark as well as a border). A selected story’s preview takes focus; each screen's heading takes focus when it appears. **About this story** is a modal dialog with a labelled close button and external links announced as opening a new tab. The reflection buttons are a labelled group of toggles (a feeling is never conveyed by colour alone). The page counter stays on one line.
+
 ## Checked
 Keyboard order and focus rings, dialog focus, the companion's Tab/Enter/Space behaviour, narrow-width wrapping (320 px and up) and overlap of the companion with text and controls were checked in the browser pane (see [TESTING_LOG.md](../TESTING_LOG.md)). Contrast and the companion's hidden-from-assistive-tech markup are covered by automated tests.
 

@@ -33,6 +33,7 @@ const STATIC = [
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
   "/icons/favicon-32.png",
+  "/illustrations/doorway.png", // the welcome screen's doorway art
 ];
 const MAX_ASSETS = 200;
 
