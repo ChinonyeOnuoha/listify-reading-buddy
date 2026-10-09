@@ -45,8 +45,40 @@ describe("StoryReader failure handling", () => {
     const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
     await screen.findByText("Page one text.");
     fireEvent.error(container.querySelector("img")!);
-    expect(await screen.findByText(/The picture couldn’t be loaded/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "This picture couldn’t be loaded. The words for this page are below.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Page one text.")).toBeTruthy(); // the story itself is untouched
+    // and the picture can be asked for again, afresh
+    fireEvent.click(screen.getByRole("button", { name: "Try the picture again" }));
+    const img = container.querySelector("img")!;
+    expect(img.getAttribute("src")).toBe("/stories/jackal-and-the-sun/p1.jpg?try=1");
+    expect(screen.queryByText(/couldn’t be loaded/)).toBeNull();
+  });
+
+  it("on a picture-only page, a failed picture says so honestly and gives its description instead", async () => {
+    load.mockResolvedValue({
+      pages: [
+        {
+          paragraphs: [],
+          image: "/stories/jackal-and-the-sun/p2.jpg",
+          alt: "A goat on a green background.",
+        },
+      ],
+    });
+    const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    fireEvent.error(container.querySelector("img")!);
+    expect(
+      await screen.findByText(
+        /This page has no words, only the picture; what it shows is described below/,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("A goat on a green background.")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/all here in words/);
+    expect(screen.getByRole("button", { name: "Try the picture again" })).toBeTruthy();
   });
 
   it("turns pages and keeps the counter on one line; pictures are decorative", async () => {
@@ -89,16 +121,64 @@ describe("StoryReader failure handling", () => {
 describe("real story modules", () => {
   it("each one loads through the manifest's own loader", async () => {
     const mod = await vi.importActual<typeof import("@/content/stories")>("@/content/stories");
-    for (const s of mod.STORIES) expect((await mod.loadStoryText(s.slug)).pages.length).toBe(s.pageCount);
+    for (const s of mod.STORIES)
+      expect((await mod.loadStoryText(s.slug)).pages.length).toBe(s.pageCount);
     expect(loadStoryText).toBeTypeOf("function");
+  });
+});
+
+describe("page controls", () => {
+  it("sit above the reading area, pinned under the header, so they never move between story pages and notes", async () => {
+    load.mockResolvedValue({
+      pages: [
+        {
+          paragraphs: ["Short story page."],
+          image: "/stories/jackal-and-the-sun/p1.jpg",
+          alt: "Two jackals.",
+        },
+        {
+          heading: "Story notes",
+          paragraphs: ["A long note. ".repeat(80)],
+          image: null,
+          extra: "Story notes",
+        },
+      ],
+    });
+    const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
+    await screen.findByText("Short story page.");
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    expect(nav.className).toMatch(/\bsticky\b/);
+    expect(nav.className).toMatch(/top-16/); // below the 64 px site header
+    expect(nav.className).toContain("bg-card"); // opaque: text scrolling beneath stays legible
+    const area = container.querySelector(".scroll-mt-20")!;
+    expect(nav.compareDocumentPosition(area) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const next = screen.getByRole("button", { name: "Next page" });
+    next.focus();
+    fireEvent.click(next);
+    expect(screen.getByText("Page 2 of 2")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Pages" })).toBe(nav); // same element, same place
+    // Next is now unavailable at the last page, so focus moves to Previous, which is in the same bar
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Previous page" })),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(screen.getByText("Page 1 of 2")).toBeTruthy();
   });
 });
 
 describe("descriptions, notes and picture-only pages", () => {
   const notesText = {
     pages: [
-      { paragraphs: ["The story."], image: "/stories/sailing-ships-and-sinking-spoons/p1.jpg", alt: "Two boys sail paper boats." },
-      { paragraphs: [], image: "/stories/sailing-ships-and-sinking-spoons/p2.jpg", alt: "A ship on the sea." },
+      {
+        paragraphs: ["The story."],
+        image: "/stories/sailing-ships-and-sinking-spoons/p1.jpg",
+        alt: "Two boys sail paper boats.",
+      },
+      {
+        paragraphs: [],
+        image: "/stories/sailing-ships-and-sinking-spoons/p2.jpg",
+        alt: "A ship on the sea.",
+      },
       {
         heading: "What is Gravity?",
         paragraphs: ["Things fall."],
@@ -111,7 +191,9 @@ describe("descriptions, notes and picture-only pages", () => {
 
   it("describes each picture, and labels pages that come after the story so they are never mistaken for it", async () => {
     load.mockResolvedValue(notesText);
-    const { container } = render(<StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />);
+    const { container } = render(
+      <StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />,
+    );
     await screen.findByText("The story.");
     expect(container.querySelector("img")!.getAttribute("alt")).toBe("Two boys sail paper boats.");
     // the notes page is in the page (hidden until reached); the story page itself carries no label
@@ -128,7 +210,9 @@ describe("descriptions, notes and picture-only pages", () => {
 
   it("keeps the picture slot and the controls in place on a picture-only page and on a notes page", async () => {
     load.mockResolvedValue(notesText);
-    const { container } = render(<StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />);
+    const { container } = render(
+      <StoryReader story={notesStory} textSize={1} onTextSize={() => {}} />,
+    );
     await screen.findByText("The story.");
     const slots = () => [...container.querySelectorAll(".h-\\[clamp\\(11rem\\,32vh\\,20rem\\)\\]")];
     expect(slots()).toHaveLength(2); // a reserved slot on each story page; the written notes group has no pictures, so none
@@ -188,7 +272,7 @@ describe("steady page turns", () => {
     const img = container.querySelector("img")!;
     expect(img.className).toContain("object-contain"); // whole picture, never cropped or stretched
     fireEvent.error(img);
-    expect(await screen.findByText(/The picture couldn’t be loaded/)).toBeTruthy();
+    expect(await screen.findByText(/This picture couldn’t be loaded/)).toBeTruthy();
     expect(slots[0]!.className).toContain("h-[clamp("); // the area did not collapse
   });
 
@@ -247,10 +331,9 @@ describe("steady page turns", () => {
     const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
     await screen.findByText("One short line.");
     const area = container.querySelector(".scroll-mt-20")! as HTMLElement;
-    const header = document.createElement("header");
-    header.className = "sticky";
-    header.getBoundingClientRect = () => ({ bottom: 64 }) as DOMRect;
-    document.body.prepend(header);
+    // the page controls are pinned under the 64 px header; their bottom edge is the top of the readable view
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    nav.getBoundingClientRect = () => ({ bottom: 112 }) as DOMRect;
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     const at = (top: number) => {
       area.getBoundingClientRect = () => ({ top }) as DOMRect;
@@ -264,8 +347,7 @@ describe("steady page turns", () => {
     at(-400); // the reader had scrolled down: the new page's start is above the screen
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(scrollBy).toHaveBeenCalledTimes(1));
-    expect(scrollBy.mock.calls[0]![0]).toMatchObject({ top: -400 - 64 - 12, behavior: "auto" }); // lands just under the header, instantly
-    header.remove();
+    expect(scrollBy.mock.calls[0]![0]).toMatchObject({ top: -400 - 112 - 12, behavior: "auto" }); // lands just under the page controls, instantly
   });
 
   it("opening and closing About this story changes nothing about the page or the scroll position", async () => {

@@ -35,6 +35,9 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
   const setPage = (p: number) => (onPage ? onPage(p) : setLocalPage(p));
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [pictureFailed, setPictureFailed] = useState<Record<string, boolean>>({});
+  // Bumped by "Try the picture again", so the browser asks for the picture afresh instead of reusing the failed request.
+  const [pictureTry, setPictureTry] = useState<Record<string, number>>({});
+  const navRef = useRef<HTMLElement>(null);
   const [announce, setAnnounce] = useState("");
   const area = useRef<HTMLDivElement>(null);
   const prevBtn = useRef<HTMLButtonElement>(null);
@@ -81,11 +84,14 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
     }
     const el = area.current;
     if (!el) return;
-    const headerBottom =
-      document.querySelector("header.sticky")?.getBoundingClientRect().bottom ?? 0;
+    // The page controls stay pinned under the site header, so "in view" means below them.
+    const barBottom =
+      navRef.current?.getBoundingClientRect().bottom ??
+      document.querySelector("header.sticky")?.getBoundingClientRect().bottom ??
+      0;
     const top = el.getBoundingClientRect().top;
-    const startVisible = top >= headerBottom && top < window.innerHeight * 0.6;
-    if (!startVisible) window.scrollBy({ top: top - headerBottom - 12, behavior: "auto" });
+    const startVisible = top >= barBottom - 1 && top < window.innerHeight * 0.6;
+    if (!startVisible) window.scrollBy({ top: top - barBottom - 12, behavior: "auto" });
   }, [current]);
 
   const go = (to: number, via: "prev" | "next") => {
@@ -172,78 +178,17 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
         </div>
       )}
 
-      {text && (
-        // `overflow-anchor: none` stops the browser nudging the scroll position when the visible page changes.
-        <div ref={area} className="scroll-mt-20 [overflow-anchor:none]" lang="en">
-          {/*
-            The story's pages share one grid (one height); any pages printed after the story (notes, a game) share another, so
-            a long notes page never makes every story page tall. The controls only move once, when the reader crosses from the
-            story into those pages, and back.
-          */}
-          {[0, 1].map((group) => {
-            // a group with no pictures at all (for example, written notes) reserves no picture slot
-            const groupHasPictures = !!text.pages.some((p, i) => groupOf(i) === group && p.image);
-            return (
-            <div key={group} className={`grid ${activeGroup === group ? "" : "hidden"}`}>
-            {text.pages.map((pg, i) => {
-              if (groupOf(i) !== group) return null;
-              const active = i === current;
-              return (
-                <div
-                  key={i}
-                  className={`col-start-1 row-start-1 ${active ? "" : "invisible"}`}
-                  aria-hidden={active ? undefined : true}
-                  inert={!active}
-                >
-                  {groupHasPictures && (
-                    <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white [@media(max-height:480px)]:h-[44vh]">
-                      {active && pg.image ? (
-                        pictureFailed[pg.image] ? (
-                          <p className="px-4 text-center text-sm text-muted-foreground">
-                            The picture couldn’t be loaded. The story is all here in words.
-                          </p>
-                        ) : (
-                          <img
-                            src={pg.image}
-                            alt={pg.alt ?? ""}
-                            decoding="async"
-                            className="size-full object-contain"
-                            onError={() => setPictureFailed((f) => ({ ...f, [pg.image!]: true }))}
-                          />
-                        )
-                      ) : null}
-                    </div>
-                  )}
-                  <div
-                    style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
-                    className={`max-w-[65ch] space-y-4 leading-[1.7] ${pg.extra ? "border-l-4 border-apricot pl-4" : ""}`}
-                  >
-                    {/* Pages printed after the story (notes, a game) say so, so they are never mistaken for the story. */}
-                    {pg.extra && (
-                      <p className="!mt-0 text-[0.875rem] leading-snug font-medium text-muted-foreground">
-                        {pg.extra} · after the story
-                      </p>
-                    )}
-                    {pg.heading && (
-                      <h2 className="display-serif !mt-2 text-[1.25em] leading-tight text-heading">
-                        {pg.heading}
-                      </h2>
-                    )}
-                    {pg.paragraphs.map((t, k) => (
-                      <p key={k}>{t}</p>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            </div>
-            );
-          })}
-        </div>
-      )}
-
+      {/*
+          The page controls sit above the reading area and stay pinned under the site header while a long page scrolls, so
+          Previous, the counter and Next are in the same place on every page — story pages and the notes after them — and
+          never sit under the phone's recording dock. Opaque, so text scrolling beneath them stays legible.
+      */}
       {text && total > 1 && (
-        <nav aria-label="Pages" className="mt-3 flex items-center justify-between gap-4">
+        <nav
+          ref={navRef}
+          aria-label="Pages"
+          className="sticky top-16 z-10 -mx-5 mb-3 flex items-center justify-between gap-4 border-b border-border bg-card px-5 py-1 sm:-mx-7 sm:px-7 lg:-mx-10 lg:px-10 [@media(max-height:480px)]:top-12"
+        >
           <button
             ref={prevBtn}
             className="btn-quiet min-h-11 min-w-11 justify-center px-2 sm:-ml-3 sm:px-3"
@@ -269,6 +214,114 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
             <ChevronRight className="size-5 sm:size-4" aria-hidden />
           </button>
         </nav>
+      )}
+
+      {text && (
+        // `overflow-anchor: none` stops the browser nudging the scroll position when the visible page changes.
+        <div ref={area} className="scroll-mt-20 [overflow-anchor:none]" lang="en">
+          {/*
+            The story's pages share one grid (one height); any pages printed after the story (notes, a game) share another, so
+            a long notes page never makes every story page tall. The controls only move once, when the reader crosses from the
+            story into those pages, and back.
+          */}
+          {[0, 1].map((group) => {
+            // a group with no pictures at all (for example, written notes) reserves no picture slot
+            const groupHasPictures = !!text.pages.some((p, i) => groupOf(i) === group && p.image);
+            return (
+              <div key={group} className={`grid ${activeGroup === group ? "" : "hidden"}`}>
+                {text.pages.map((pg, i) => {
+                  if (groupOf(i) !== group) return null;
+                  const active = i === current;
+                  return (
+                    <div
+                      key={i}
+                      className={`col-start-1 row-start-1 ${active ? "" : "invisible"}`}
+                      aria-hidden={active ? undefined : true}
+                      inert={!active}
+                    >
+                      {groupHasPictures && (
+                        <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white [@media(max-height:480px)]:h-[44vh]">
+                          {active && pg.image ? (
+                            pictureFailed[pg.image] ? (
+                              <div
+                                role="status"
+                                className="flex flex-col items-center gap-2 px-4 text-center text-sm"
+                              >
+                                <p className="text-muted-foreground">
+                                  {pg.paragraphs.length > 0
+                                    ? "This picture couldn’t be loaded. The words for this page are below."
+                                    : "This picture couldn’t be loaded. This page has no words, only the picture; what it shows is described below."}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="btn-secondary min-h-11"
+                                  onClick={() => {
+                                    const src = pg.image!;
+                                    setPictureTry((n) => ({ ...n, [src]: (n[src] ?? 0) + 1 }));
+                                    setPictureFailed((f) => ({ ...f, [src]: false }));
+                                  }}
+                                >
+                                  Try the picture again
+                                </button>
+                              </div>
+                            ) : (
+                              <img
+                                key={pictureTry[pg.image] ?? 0}
+                                src={
+                                  pictureTry[pg.image]
+                                    ? `${pg.image}?try=${pictureTry[pg.image]}`
+                                    : pg.image
+                                }
+                                alt={pg.alt ?? ""}
+                                decoding="async"
+                                className="size-full object-contain"
+                                onError={() =>
+                                  setPictureFailed((f) => ({ ...f, [pg.image!]: true }))
+                                }
+                              />
+                            )
+                          ) : null}
+                        </div>
+                      )}
+                      <div
+                        style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
+                        className={`max-w-[65ch] space-y-4 leading-[1.7] ${pg.extra ? "border-l-4 border-apricot pl-4" : ""}`}
+                      >
+                        {/* Pages printed after the story (notes, a game) say so, so they are never mistaken for the story. */}
+                        {pg.extra && (
+                          <p className="!mt-0 text-[0.875rem] leading-snug font-medium text-muted-foreground">
+                            {pg.extra} · after the story
+                          </p>
+                        )}
+                        {pg.heading && (
+                          <h2 className="display-serif !mt-2 text-[1.25em] leading-tight text-heading">
+                            {pg.heading}
+                          </h2>
+                        )}
+                        {pg.paragraphs.map((t, k) => (
+                          <p key={k}>{t}</p>
+                        ))}
+                        {/* A picture-only page whose picture failed: its description is the page's content. */}
+                        {active &&
+                          pg.image &&
+                          pictureFailed[pg.image] &&
+                          pg.paragraphs.length === 0 &&
+                          pg.alt && (
+                            <p className="text-muted-foreground">
+                              <span className="font-medium text-foreground">
+                                The picture shows:{" "}
+                              </span>
+                              {pg.alt}
+                            </p>
+                          )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
