@@ -31,7 +31,7 @@ npm test           # unit tests
 ```
 A production build is `npm run build`; to run one locally use `NITRO_PRESET=node-server npm run build` then `node .output/server/index.mjs`.
 
-A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`; the terminal shows the local address). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show.
+A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`; the terminal shows the local address). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show. A later adult-only experiment in the same lab sends test recordings to cloud transcription services, run by hand with keys kept in a git-ignored local file; see [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md). The app itself sends nothing.
 
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it
@@ -39,7 +39,7 @@ A development-only experiment checks whether free on-device speech recognition c
 - [Design system](docs/design-system.md) — palette, type, surfaces, the bookmark companion and its interaction
 - [Architecture](docs/architecture.md) — structure, how recording and the offline app work, privacy and network behaviour
 - [Accessibility notes](docs/accessibility.md) — what is built in and what is not yet verified
-- [AI feasibility summary](docs/ai-feasibility.md) and [lab README](lab/README.md)
+- [AI feasibility summary](docs/ai-feasibility.md), [AI feedback plan](docs/ai-feedback-plan.md), [cloud transcription experiment](docs/ai-feedback-experiment.md) and [lab README](lab/README.md)
 - [Testing record](TESTING_LOG.md) — what was tested, limits, decisions, known issues
 
 Earlier, more detailed working notes were condensed from the current files; the originals remain in the repository's Git history.

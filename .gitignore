@@ -41,3 +41,6 @@ lab/synthetic-audio/
 
 # Local-only Claude Code settings and launch configs
 .claude/
+
+# AI lab cloud experiment: converted audio, raw provider responses and local reports (never committed)
+lab/.cloud-results/

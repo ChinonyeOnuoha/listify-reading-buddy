@@ -1,6 +1,6 @@
 # AI feasibility: what was tested and what it means
 
-**Summary.** Whisper `tiny.en`, `base.en` and `small.en` were run in the browser (development lab only) on **one reader's one recording** of a 118-word passage. They were **not** integrated into the app or its sample feedback, and the app does not analyse recordings. No cloud AI is used by the project.
+**Summary.** Whisper `tiny.en`, `base.en` and `small.en` were run in the browser (development lab only) on **one reader's one recording** of a 118-word passage. They were **not** integrated into the app or its sample feedback, and the app does not analyse recordings. No cloud AI is used by the app; a later adult-lab experiment with cloud transcription is in [ai-feedback-experiment.md](ai-feedback-experiment.md).
 
 ## What was tested
 The lab (`lab/`, started with `npm run lab`, never part of the production build or navigation) loads a Whisper model from a public CDN, transcribes an uploaded recording on the device, and compares the transcript with the passage as entered, word by word. It also estimates pauses from the audio and pace from word timestamps, and has an OCR experiment (Tesseract.js) for page photos. See [`lab/README.md`](../lab/README.md) for how it works and its safeguards.
@@ -30,7 +30,7 @@ Recording: one reader, one take, a phone recording, read cold. The reader listen
 ## Decisions taken
 - **No on-device model is used for feedback.** With these three, comparing a transcript with the passage would label a large share of a correct reading as "differences", which conflicts with the product rule that accents must never be treated as errors.
 - Public feedback screens remain clearly labelled illustrative samples and are separate from any recording.
-- No cloud AI will be added to this prototype.
+- No cloud AI in the app. (Superseded for the adult lab only: on 2026-11-04 the project owner approved a cloud transcription experiment in the lab — see [ai-feedback-experiment.md](ai-feedback-experiment.md). The app and children’s corner still use none.)
 - A future attempt would need a verified transcript of what was spoken (for a true ASR error rate), more readers and recording conditions, and listening validation of any pause or pace measure before it is shown to a user.
 
 ## Open items

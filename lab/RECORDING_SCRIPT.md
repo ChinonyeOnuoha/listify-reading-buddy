@@ -15,4 +15,4 @@ Six short recordings, one per case. Each takes about 30–60 seconds. Record on 
 | 5 | Pace change | First three sentences slowly; from “Some said an hour” to the end, noticeably faster. | Higher words-per-minute after “Some said an hour” — only if timestamps look reliable. |
 | 6 | Silence / noise | ~5 s silence, ~10 s background noise without speaking, then read only the first sentence with the noise still going. | No invented words during the silent/noise-only part. |
 
-**Tips:** keep the phone 20–30 cm away; one take per case is enough. Recordings stay on your device — the lab processes them in the browser and doesn't upload them.
+**Tips:** keep the phone 20–30 cm away; one take per case is enough. In the browser lab, recordings stay on your device and are not uploaded. The separate cloud experiment (`lab/cloud/`) uploads audio to transcription services only when run with `--upload`, after the owner's approval.

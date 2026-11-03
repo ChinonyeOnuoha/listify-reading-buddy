@@ -128,6 +128,17 @@ export function findPauses(audio: Float32Array, rate: number, minPause = 0.3): {
   return { pauses, floorDb, thresholdDb, speech };
 }
 
+/** Join silences split only by a brief sound (a click or breath shorter than `maxGap` seconds) into one pause. */
+export function mergePauses(pauses: Pause[], maxGap = 0.25): Pause[] {
+  const out: Pause[] = [];
+  for (const p of pauses) {
+    const last = out[out.length - 1];
+    if (last && p.start - last.end <= maxGap) out[out.length - 1] = { start: last.start, end: p.end, duration: p.end - last.start };
+    else out.push({ ...p });
+  }
+  return out;
+}
+
 /** Attach the neighbouring transcript words to each pause, when word timestamps exist. */
 export function placePauses(pauses: Pause[], words: Word[]): Pause[] {
   const timed = words.filter((w) => w.start != null && w.end != null);

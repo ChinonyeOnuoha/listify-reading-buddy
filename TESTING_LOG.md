@@ -13,7 +13,7 @@ A concise public record of what has been tested, where, with what limits, what c
 | Suite | What it covers |
 |---|---|
 | App (`npm test`), 219 tests | Routing smoke tests; PWA install/standalone/iOS detection and update policy; service-worker behaviour using the real template stamped like a build (cache cleanup limited to Reading Buddy's own caches, no `skipWaiting` on install, offline fallback, foreign requests untouched, precache list); build-stamping rules; colour-contrast thresholds read from the real CSS tokens; companion accessibility markup and one-shot interaction (click/hover, no queueing, touch vs mouse, reduced motion, arrival wave); Install-button cases; the page-zoom viewer's geometry (fit for portrait, tall and landscape pages; zoom limits; zoom anchoring; every edge reachable with no empty gap; resize and rotation) and its component behaviour (controls, labels and `aria-disabled`, keyboard, drag, pinch, Ctrl/⌘-wheel, double-click, touch-action, clipping, each new page starting fitted, controls and page counter outside the transformed layer); the children's corner (see below): story manifest integrity (credit, licence, every named picture exists, word and page counts match), the doorway, chooser, filters, preview, reading and recording cycles, review and reflection, replace-recording confirmation, adult/children session separation, Exit scope, leaving mid-recording, browser Back/Forward, story-load failure and picture failure, and a regression check that the adult flow still shows the pasted passage and timed target |
-| Lab (`npx vitest run --config lab/vitest.config.ts`), 26 tests | Alignment, pause and pace analysis; the lab's model/recording state machine (selected vs loaded model, job ids, Clear/cancel races, provenance) |
+| Lab (`npx vitest run --config lab/vitest.config.ts`), 34 tests | Alignment, pause and pace analysis; the lab's model/recording state machine (selected vs loaded model, job ids, Clear/cancel races, provenance); prepared feedback (clean reading acknowledged, repetition/omission wording, low confidence as couldn’t-assess, pauses inside vs between sentences, names not reported, split silences merged, pace only from reliable timings and excluding pauses, no cause words) |
 | Type checks | `tsc --noEmit` for the app and for `lab/`: clean |
 | Lint | No code-quality errors. The repository's Prettier rule (print width 100) was already failing in older files and has not been applied repo-wide |
 | Production builds | Cloudflare and Node targets succeed; output searched for lab and model code and for documentation files: none present |
@@ -152,9 +152,22 @@ Summary of [docs/ai-feasibility.md](docs/ai-feasibility.md):
 - The tested models are **not** integrated into public feedback. One external Google AI Studio comparison was done manually by the reader, outside the project.
 - The lab's own regression tests and the OCR experiment (clean synthetic page only) are covered above and in the lab README.
 
+### Cloud transcription experiment, adult lab only (2026-11-04)
+Run by Claude Code with the owner’s approval; full results in [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md).
+- **What was run:** the same six recordings (one reader, one phone) through Deepgram Nova-3, AssemblyAI Universal-3.5 Pro and AssemblyAI Universal-2, analysed locally, with prepared feedback sentences.
+- **Universal-3.5 Pro:**
+  - no false word flags on the normal reading (names excluded);
+  - kept every repetition and invented nothing;
+  - the most accurate pause timing;
+  - found the pace change, with no false ones elsewhere.
+- **Universal-2** silently dropped one restarted phrase. **Deepgram** made 56 system errors against Universal-3.5 Pro’s 12 (names excluded).
+- **Ground truth is partly provisional:** only the dropped “and” in *Normal reading* is confirmed by listening, and nine moments are still to be checked by ear.
+- **Cost and data:** credit used ≈ $0.056 at list price, within free credits. AssemblyAI transcripts were all deleted afterwards. AssemblyAI’s free plan can’t opt out of model training; the owner accepted this for these six recordings.
+- **Unchanged:** nothing in the app or children’s corner changed or sends data.
+
 ## Decisions made from these results
 - Keep feedback screens as clearly labelled illustrative samples; do not connect any tested model.
-- No cloud AI in this prototype.
+- No cloud AI in the app. Cloud transcription is used only in the adult lab experiment above, with keys in a git-ignored local file.
 - Keep the lab, its tests and its documented findings in the repository, outside the production build and navigation.
 - Treat the companion as a button only where it cannot interfere with reading, recording or playback.
 - Self-hosting the fonts would remove the Google request; not done yet.

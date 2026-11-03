@@ -35,7 +35,7 @@ What was checked, and how:
 - **Lovable's editor preview:** the app's error boundary forwards a runtime error's message, stack and route path to a reporting hook *if* one exists on the page (`src/lib/lovable-error-reporting.ts`). That hook is only present inside Lovable's editor preview; it is not part of this app, and what Lovable's tooling does with it was not inspected. No passage, photo or recording content is passed to it.
 - **Not checked:** requests made by a hosting platform's own scripts or headers outside the app's code, and any browser extension behaviour.
 
-The development lab is separate: it downloads speech and OCR model files from public CDNs and runs them locally in the browser. The only cloud-AI step in the project's history was one manual comparison done by hand outside the app, described in [ai-feasibility.md](ai-feasibility.md).
+The development lab is separate: it downloads speech and OCR model files from public CDNs and runs them locally in the browser. Cloud AI has been used twice, never by the app: one manual comparison done by hand outside the project ([ai-feasibility.md](ai-feasibility.md)), and an adult-only lab experiment (`lab/cloud/`, a local Node script run by hand) that sent six test recordings to Deepgram and AssemblyAI with keys from a git-ignored `.env.local` ([ai-feedback-experiment.md](ai-feedback-experiment.md)).
 
 ## Production build excludes the lab and notes
 The lab lives outside `src/` and is never imported by the app. Each time the build is checked, `.output/` is searched for lab and model code (transformers, whisper, tesseract, `asr.worker`, `lab/`) and for the documentation files; none appear. The app has no route or link to the lab.

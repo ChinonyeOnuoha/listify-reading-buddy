@@ -26,7 +26,7 @@ Recording script: `RECORDING_SCRIPT.md` (also shown in the lab). Synthetic pipel
 | `onnx-community/whisper-small.en_timestamped` | huggingface.co | as above (`openai/whisper-small.en`, Apache-2.0) | 8-bit: encoder 92.2 MB + decoder 156.8 MB + tokenizer/config 2.7 MB = **251.7 MB**. About 3× slower than base.en on a laptop (real-time factor ≈ 0.4); a long first download |
 | Tesseract.js 7.0.0 + core + English data | cdn.jsdelivr.net | Apache-2.0 | OCR experiment only |
 
-Everything is cached by the browser (Cache API, `transformers-cache`) after the first download. Interrupted downloads are not resumed — a dropped connection restarts the large files (seen in testing). Recordings and passages are never uploaded; inference runs in the browser. **Delete downloaded models** removes the cache.
+Everything is cached by the browser (Cache API, `transformers-cache`) after the first download. Interrupted downloads are not resumed — a dropped connection restarts the large files (seen in testing). In the browser lab, recordings and passages are never uploaded; inference runs in the browser (the separate cloud experiment below uploads audio only when run with `--upload`). **Delete downloaded models** removes the cache.
 
 ## Selected vs loaded, clearing and cancelling
 - **Selected** (the two dropdowns) and **loaded** (what is really in the worker's memory) are tracked separately; "Loaded now" always shows the latter. Transcribe is only available when the selected model and device are the loaded ones, and says why when they aren't. Changing the dropdowns never changes what is loaded.
@@ -46,8 +46,15 @@ Everything is cached by the browser (Cache API, `transformers-cache`) after the 
 - **One reader, one recording, one device.** The real-voice tests so far use a single reader's single reading of one 118-word passage, recorded on a phone and run on one laptop. They are data points, not a measurement of any model in general, and say nothing about other voices, accents, microphones, rooms or passages.
 - **A difference from the written passage is not automatically a transcription error, and not automatically a reading mistake.** It can be either (or a spelling variant, or a timestamp artefact). Only a person listening can tell, which is why the lab asks for a verdict per difference and reports recognition errors separately from genuine reading differences.
 - **Why a recognition error happened is not established.** The tests can't separate accent, microphone, room, 16 kHz downsampling and model size from each other.
-- **Nothing here is connected to the public app.** The tested models are not wired to the sample feedback or to any user recording, and no cloud AI is used or planned in this prototype. (One external cloud transcript was pasted into the log for comparison only; it was not run from this project.)
+- **Nothing here is connected to the public app.** The tested models are not wired to the sample feedback or to any user recording. Cloud transcription is used only by the adult experiment above, run by hand. (One external cloud transcript was pasted into the log for comparison only; it was not run from this project.)
 - **Personal recordings and private test material are not committed.** Audio files are git-ignored (`*.m4a`, `*.wav`, `*.webm`, `lab/synthetic-audio/`); only text results written into `TESTING_LOG.md` are kept.
+
+## Cloud transcription experiment (adult only, keys required)
+`node lab/cloud/run.ts` re-analyses saved results (no upload, no cost); `node lab/cloud/run.ts --upload` sends any recording without a saved result to Deepgram Nova-3 and AssemblyAI (Universal-3.5 Pro and Universal-2), then compares each transcript with what was said and with the passage, and writes prepared feedback (`feedback.ts`).
+- Keys: `DEEPGRAM_API_KEY` and `ASSEMBLYAI_API_KEY` in the repository’s git-ignored `.env.local` (no `VITE_` prefix). Only this Node process reads them; nothing runs in a browser, and errors are scrubbed of keys.
+- Only the audio is sent, never the passage. Deepgram requests carry `mip_opt_out=true`; AssemblyAI transcripts (and with them the uploaded audio) are deleted once both models have finished.
+- Recordings are read from `RECORDINGS_DIR` (default `~/Downloads`). Converted WAVs, raw provider responses and the local report (with transcripts) go to the git-ignored `lab/.cloud-results/` — delete it when finished.
+- Results: [`../docs/ai-feedback-experiment.md`](../docs/ai-feedback-experiment.md).
 
 ## Results so far
 See [`../docs/ai-feasibility.md`](../docs/ai-feasibility.md) for the concise summary and [`../TESTING_LOG.md`](../TESTING_LOG.md) for the testing record. Detailed earlier working notes were condensed on 2026-10-08 and remain in Git history.
