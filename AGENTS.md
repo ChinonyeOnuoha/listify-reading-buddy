@@ -9,5 +9,5 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Reading Buddy is client-only: recordings, photos and passage text live in browser memory (object URLs), never sent to a server — privacy requirement of the prototype.
+- Reading Buddy is client-only: recordings, photos and passage text are kept on the device (IndexedDB via src/lib/device-store.ts, with delete controls in Saved), never sent to a server — privacy requirement of the prototype.
 - Sample feedback data lives in src/lib/sample-feedback.ts and must stay visually labelled as SAMPLE, separate from user recordings.

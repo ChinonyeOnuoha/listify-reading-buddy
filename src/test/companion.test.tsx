@@ -2,7 +2,6 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Companion, type CompanionPose } from "@/components/reading/Companion";
 import { BookMark } from "@/components/reading/BookMark";
-import { PaperBackground } from "@/components/PaperBackground";
 
 describe("decorative art is hidden from assistive technology", () => {
   it.each<CompanionPose>(["wave", "peek", "listen", "celebrate"])("companion (%s) is aria-hidden, unfocusable, text-free", (pose) => {
@@ -20,8 +19,7 @@ describe("decorative art is hidden from assistive technology", () => {
     expect(render(<Companion pose="listen" animate />).container.querySelector(".companion-wave")).toBeNull();
   });
 
-  it("logo book mark and paper background are aria-hidden", () => {
+  it("the logo book mark is aria-hidden", () => {
     expect(render(<BookMark />).container.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
-    expect(render(<PaperBackground />).container.firstElementChild!.getAttribute("aria-hidden")).toBe("true");
   });
 });

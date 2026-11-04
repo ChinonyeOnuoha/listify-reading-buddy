@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { loadStoryText, type StoryMeta, type StoryText } from "@/content/stories";
 import { AboutStory } from "./AboutStory";
-import { TEXT_SIZES } from "./useChildSession";
+import { TEXT_STEPS as TEXT_SIZES } from "@/components/app/Reader";
 
 type Props = {
   story: StoryMeta;
@@ -12,6 +12,8 @@ type Props = {
   /** The page being read (0-based). The session passes it in so it survives a trip home and back; otherwise it is local. */
   page?: number;
   onPage?: (page: number) => void;
+  /** Off when the reading screen's own toolbar shows text size and page turns. */
+  controls?: boolean;
 };
 
 type Load = { state: "loading" } | { state: "error" } | { state: "ready"; text: StoryText };
@@ -29,7 +31,7 @@ type Load = { state: "loading" } | { state: "error" } | { state: "ready"; text: 
  * - No height animation or sliding. Turning a page scrolls only if the start of the new page is out of view.
  * The text is real text (resizes, readable by assistive technology); pictures are decorative here.
  */
-export function StoryReader({ story, textSize, onTextSize, page: controlled, onPage }: Props) {
+export function StoryReader({ story, textSize, onTextSize, page: controlled, onPage, controls = true }: Props) {
   const [localPage, setLocalPage] = useState(0);
   const page = controlled ?? localPage;
   const setPage = (p: number) => (onPage ? onPage(p) : setLocalPage(p));
@@ -82,16 +84,10 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
       (focusAfter.current === "next" ? nextBtn : prevBtn).current?.focus({ preventScroll: true });
       focusAfter.current = null;
     }
+    // Show the start of the new page if it has scrolled out of view (the reading area may scroll on its own).
     const el = area.current;
     if (!el) return;
-    // The page controls stay pinned under the site header, so "in view" means below them.
-    const barBottom =
-      navRef.current?.getBoundingClientRect().bottom ??
-      document.querySelector("header.sticky")?.getBoundingClientRect().bottom ??
-      0;
-    const top = el.getBoundingClientRect().top;
-    const startVisible = top >= barBottom - 1 && top < window.innerHeight * 0.6;
-    if (!startVisible) window.scrollBy({ top: top - barBottom - 12, behavior: "auto" });
+    if (el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
   }, [current]);
 
   const go = (to: number, via: "prev" | "next") => {
@@ -112,14 +108,10 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
 
   return (
     <div>
-      <h1
-        id="child-h"
-        tabIndex={-1}
-        className="display-serif text-[1.75rem] leading-tight text-heading outline-none sm:text-[2rem]"
-      >
-        {story.title}
-      </h1>
+      {/* The reading screen has its own (hidden) page heading; the story's title sits under it. */}
+      <h2 className="kid mb-4 text-[1.5rem] leading-tight font-bold text-heading">{story.title}</h2>
 
+      {controls && (
       <div
         role="toolbar"
         aria-label="Story text size"
@@ -155,6 +147,7 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
         </button>
         <AboutStory story={story} className="ml-auto" />
       </div>
+      )}
       <p role="status" aria-live="polite" className="sr-only">
         {announce}
       </p>
@@ -183,11 +176,11 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
           Previous, the counter and Next are in the same place on every page — story pages and the notes after them — and
           never sit under the phone's recording dock. Opaque, so text scrolling beneath them stays legible.
       */}
-      {text && total > 1 && (
+      {controls && text && total > 1 && (
         <nav
           ref={navRef}
           aria-label="Pages"
-          className="sticky top-16 z-10 -mx-5 mb-3 flex items-center justify-between gap-4 border-b border-border bg-card px-5 py-1 sm:-mx-7 sm:px-7 lg:-mx-10 lg:px-10 [@media(max-height:480px)]:top-12"
+          className="mb-3 flex items-center justify-between gap-4 border-b border-border py-1"
         >
           <button
             ref={prevBtn}
@@ -240,7 +233,7 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                       inert={!active}
                     >
                       {groupHasPictures && (
-                        <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white [@media(max-height:480px)]:h-[44vh]">
+                        <div className="mb-4 flex h-[clamp(11rem,32vh,20rem)] items-center justify-center overflow-hidden rounded-2xl bg-night [@media(max-height:480px)]:h-[44vh]">
                           {active && pg.image ? (
                             pictureFailed[pg.image] ? (
                               <div
@@ -285,7 +278,7 @@ export function StoryReader({ story, textSize, onTextSize, page: controlled, onP
                       )}
                       <div
                         style={{ fontSize: `${TEXT_SIZES[textSize]}rem` }}
-                        className={`max-w-[65ch] space-y-4 leading-[1.7] ${pg.extra ? "border-l-4 border-apricot pl-4" : ""}`}
+                        className={`kid mx-auto max-w-[34em] space-y-4 leading-[1.65] ${pg.extra ? "border-l-4 border-apricot pl-4" : ""}`}
                       >
                         {/* Pages printed after the story (notes, a game) say so, so they are never mistaken for the story. */}
                         {pg.extra && (

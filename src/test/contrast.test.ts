@@ -25,24 +25,38 @@ const ratio = (a: string, b: string) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-const page = token("ivory-page");
-const card = token("ivory-card");
-const tint = token("tint");
-const muted = token("muted");
-const apricotTint = token("apricot-tint");
-const white = "#ffffff";
-
-const TEXT: [string, string, string][] = [
-  ["ink-text", "page", page], ["ink-text", "card", card], ["ink-text", "tint", tint], ["ink-text", "white field", white], ["ink-text", "apricot-tint chip", apricotTint],
-  ["ink-text", "muted (segmented control)", muted],
-  ["ink-heading", "page", page], ["ink-heading", "card", card], ["ink-heading", "tint", tint], ["ink-heading", "apricot-tint (response modal circle)", apricotTint],
-  ["ink-support", "page", page], ["ink-support", "card", card], ["ink-support", "tint", tint], ["ink-support", "muted", muted],
-  ["ink", "page", page], ["ink", "card", card], ["ink", "tint", tint],
-  ["destructive", "page", page], ["destructive", "card", card], ["destructive", "white field", white],
+const night = token("night");
+const panel = token("panel");
+const raised = token("raised");
+const selected = token("selected");
+const soft = token("soft");
+const SURFACES: [string, string][] = [
+  ["night (page)", night],
+  ["panel", panel],
+  ["raised (cards, options)", raised],
+  ["selected (hover, chosen)", selected],
 ];
+
+/** Body and supporting text on every surface it appears on. */
+const TEXT: [string, string, string][] = [
+  ...SURFACES.map(([n, bg]) => ["cream", n, bg] as [string, string, string]),
+  ...SURFACES.map(([n, bg]) => ["cream-2", n, bg] as [string, string, string]),
+  ["cream", "soft (secondary buttons)", soft],
+  ["cream-3", "night (placeholders)", night],
+  ["cream-3", "panel", panel],
+  ["cream-3", "raised", raised],
+  ["amber", "panel (links)", panel],
+  ["amber", "raised", raised],
+  ["rose", "panel (delete links)", panel],
+  ["rose", "raised (menus)", raised],
+  ["paper-ink", "paper (sample passage)", token("paper")],
+];
+/** Control boundaries, focus rings and state colours: 3:1. */
 const NON_TEXT: [string, string, string][] = [
-  ["line", "page", page], ["line", "card", card], ["line", "white field", white],
-  ["ink", "page", page], ["ink", "card", card], ["ink", "tint", tint], ["ink", "apricot-tint", apricotTint],
+  ...SURFACES.map(([n, bg]) => ["line", n, bg] as [string, string, string]),
+  ...SURFACES.map(([n, bg]) => ["amber", n, bg] as [string, string, string]),
+  ["lilac", "panel (recording dot)", panel],
+  ["lilac", "raised", raised],
 ];
 
 describe("design token contrast", () => {
@@ -50,19 +64,18 @@ describe("design token contrast", () => {
     expect(ratio(token(fg), bg)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("ivory text on the primary ink button ≥ 4.5:1", () => {
-    expect(ratio(card, token("ink"))).toBeGreaterThanOrEqual(4.5);
+  it("dark ink on the amber primary button and the rose delete button ≥ 4.5:1", () => {
+    expect(ratio(token("amber-ink"), token("amber"))).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(token("amber-ink"), token("rose"))).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(NON_TEXT)("%s boundary / indicator on %s ≥ 3:1", (fg, _name, bg) => {
     expect(ratio(token(fg), bg)).toBeGreaterThanOrEqual(3);
   });
 
-  it("apricot is too light to carry text — keep it decorative", () => {
-    expect(ratio(token("apricot"), card)).toBeLessThan(3);
-  });
-
-  it("page and card stay distinct warm ivory surfaces (card slightly lighter)", () => {
-    expect(lum(card)).toBeGreaterThan(lum(page));
+  it("surfaces step up in lightness from the page to the selected state", () => {
+    expect(lum(panel)).toBeGreaterThan(lum(night));
+    expect(lum(raised)).toBeGreaterThan(lum(panel));
+    expect(lum(selected)).toBeGreaterThan(lum(raised));
   });
 });

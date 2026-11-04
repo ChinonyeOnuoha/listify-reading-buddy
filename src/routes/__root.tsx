@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { PaperBackground } from "../components/PaperBackground";
 
 function NotFoundComponent() {
   return (
@@ -79,21 +78,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#F6F2E8" },
+      { name: "theme-color", content: "#0E1830" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Reading Buddy" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { title: "Reading Buddy — a reading-practice prototype" },
-      { name: "description", content: "A reading-practice prototype: set a reading target, bring a passage, record yourself reading aloud and listen back. AI feedback and text extraction are not connected yet." },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { title: "Reading Buddy — practise reading aloud" },
+      { name: "description", content: "Build a quiet reading nook, read aloud, record yourself and listen back. Everything stays on your device. AI feedback and text extraction are not connected yet." },
     ],
     links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,72,600,100;1,72,500,100&display=swap",
-      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -129,7 +122,6 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PaperBackground />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

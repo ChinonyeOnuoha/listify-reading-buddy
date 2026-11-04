@@ -1,38 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Lock, LogOut } from "lucide-react";
-import { ChildrenCorner } from "@/components/children/ChildrenCorner";
-import { DoorwayInvite, type DoorwayResume } from "@/components/children/DoorwayInvite";
-import { useChildSession } from "@/components/children/useChildSession";
-import { getStory } from "@/content/stories";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { FolderClosed, Volume2, VolumeX } from "lucide-react";
 import { BookMark } from "@/components/reading/BookMark";
-import { CompanionPerch } from "@/components/reading/Companion";
 import { InstallButton } from "@/components/reading/InstallButton";
-import { ContinueBar } from "@/components/reading/ContinueBar";
-import { PrepareStep, type InputMode, type PageImage } from "@/components/reading/PrepareStep";
-import { ReadStep } from "@/components/reading/ReadStep";
-import { ReviewStep } from "@/components/reading/ReviewStep";
-import { SampleFeedback } from "@/components/reading/SampleFeedback";
-import { SampleSession, type SampleStage } from "@/components/reading/SampleSession";
-import { SessionDialog } from "@/components/reading/SessionDialog";
-import { TargetCard } from "@/components/reading/TargetCard";
-import { formatTime, useRecorder } from "@/components/reading/useRecorder";
+import { formatTime, type AudioTake } from "@/components/reading/useRecorder";
+import { AboutStory } from "@/components/children/AboutStory";
+import { StoryReader } from "@/components/children/StoryReader";
+import { Nook } from "@/components/nook/Nook";
+import { BringStep } from "@/components/app/BringStep";
+import { PagesView, Pager, PassageText, ReaderFrame, TextSize } from "@/components/app/Reader";
+import { Recorder } from "@/components/app/Recorder";
+import {
+  AdultReview,
+  KidReview,
+  type Feeling,
+  type KidResponseAction,
+} from "@/components/app/Review";
+import { SamplePanel } from "@/components/app/Sample";
+import { SavedPanel, type SavedItem } from "@/components/app/Saved";
+import { ColourStep, HomePanel, ReadyPanel, TimeStep } from "@/components/app/setup";
+import { KidTabs, StoriesStep, type LengthFilter } from "@/components/app/Stories";
+import { Confirm, Modal, Toast, type ToastMessage } from "@/components/app/ui";
+import { getStory, readingWords, type StoryTheme } from "@/content/stories";
+import { askToKeepStorage, formatBytes } from "@/lib/device-store";
+import { colourName, useNookMemory } from "@/lib/nook-memory";
 import { shouldOfferUpdate, usePwa } from "@/lib/pwa";
+import { useReadingSession, type ReadingSession, type Snapshot } from "@/lib/reading-session";
+import { playCue, type Cue } from "@/lib/sound";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Reading Buddy — a reading-practice prototype" },
+      { title: "Reading Buddy — practise reading aloud" },
       {
         name: "description",
         content:
-          "A reading-practice prototype: set a reading target, bring a passage, record yourself reading aloud and listen back. AI feedback and text extraction are not connected yet.",
+          "Build a quiet reading nook, read aloud, record yourself and listen back. A children’s corner has picture stories. Everything stays on your device.",
       },
-      { property: "og:title", content: "Reading Buddy — a reading-practice prototype" },
+      { property: "og:title", content: "Reading Buddy — practise reading aloud" },
       {
         property: "og:description",
         content:
-          "A prototype for practising reading aloud: record yourself and listen back. AI feedback is not connected yet.",
+          "Read aloud, record yourself and listen back, in a calm night-time reading nook. AI feedback is not connected yet.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -41,637 +50,846 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-/** "home" is the welcome screen shown while a session exists (with Resume session); "samples" is sample feedback. */
-type View = "home" | "prepare" | "read" | "review" | "samples";
-type Place = Exclude<View, "home">;
+type Corner = "home" | "adult" | "kid" | "sample" | "saved";
+type Screen = "time" | "bring" | "cushion" | "stories" | "ready" | "read" | "review";
+type Pending = { kind: "leave"; then: () => void } | { kind: "deleteAll" } | { kind: "forget" };
 
 const pauseAllAudio = () => document.querySelectorAll("audio").forEach((a) => a.pause());
+/** WAV at 16 kHz, 16-bit mono: about 32 KB a second. Used to size a recording in Saved. */
+const recordingBytes = (t: AudioTake | null) => (t ? Math.round(t.duration * 32000) : 0);
 
 function Index() {
-  // The visitor's own session, kept in this tab's memory only. The sample session never reads or writes any of it.
-  const [view, setView] = useState<View>("prepare");
-  const [resumeTo, setResumeTo] = useState<Place>("prepare");
-  const [target, setTarget] = useState<number | null>(null);
-  const [mode, setMode] = useState<InputMode>(null);
-  const [text, setText] = useState("");
-  const [images, setImages] = useState<PageImage[]>([]);
-  const rec = useRecorder(() => setView("review"));
+  const { nook, loaded: nookLoaded, update: setNook, forget: forgetNook } = useNookMemory();
+  const [corner, setCorner] = useState<Corner>("home");
+  const [screen, setScreen] = useState<Screen>("time");
+  const [editing, setEditing] = useState(false);
+  const [lampOn, setLampOn] = useState(false);
+  const [kidLampOn, setKidLampOn] = useState(false);
+  const [preview, setPreview] = useState<{ cushion?: string; beanbag?: string; minutes?: number | null }>({});
+  const [kidTab, setKidTab] = useState<"pick" | "own">("pick");
+  const [filter, setFilter] = useState<"all" | StoryTheme>("all");
+  const [lengthFilter, setLengthFilter] = useState<LengthFilter | null>(null);
+  const [feeling, setFeeling] = useState<Feeling | null>(null);
+  const [reviewPos, setReviewPos] = useState({ main: 0, children: 0 });
+  const [textSize, setTextSize] = useState({ main: 2, children: 2 });
+  const [sample, setSample] = useState<{ step: 1 | 2 | 3; note: number }>({ step: 1, note: 0 });
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [micFor, setMicFor] = useState<ReadingSession | null>(null);
   const pwa = usePwa();
-  // The children's reading corner has its own session (own recorder, content and review), kept separately in this tab.
-  // Entering or leaving it never reads or writes the main session above, and discarding one never discards the other.
-  const child = useChildSession();
-  const [corner, setCorner] = useState<"adult" | "children">("adult");
-  const inChildren = corner === "children";
-  const activeRec = inChildren ? child.rec : rec;
+
+  const toReview = useCallback(() => setScreen("review"), []);
+  const main = useReadingSession("main", toReview);
+  const child = useReadingSession("children", toReview);
+  const kid = corner === "kid";
+  const s = kid ? child : main;
+
+  const say = (text: string, undo?: () => void, onExpire?: () => void) => {
+    setToast((prev) => {
+      prev?.onExpire?.(); // a message being replaced is final
+      return { id: Date.now(), text, undo, onExpire };
+    });
+  };
+  const sound = (cue: Cue) => {
+    if (nook.sound && !main.rec.unfinished && !child.rec.unfinished) playCue(cue);
+  };
+
+  // ---- Lamp and lantern: the last thing to happen when setup is done -----------------------------------------------
+  const lightTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(lightTimer.current), []);
+  const light = (which: "lamp" | "lantern") => {
+    window.clearTimeout(lightTimer.current);
+    const set = which === "lamp" ? setLampOn : setKidLampOn;
+    set(false);
+    lightTimer.current = window.setTimeout(() => {
+      set(true);
+      sound(which);
+    }, 450);
+    setNook({ remembered: true });
+  };
+
+  // ---- Where each corner starts, given what is already remembered ----------------------------------------------------
+  const go = (to: Screen, opts: { editing?: boolean } = {}) => {
+    setEditing(!!opts.editing);
+    setPreview({});
+    setScreen(to);
+  };
+  const resolveAdult = () => {
+    if (nook.minutes === null) return go("time");
+    if (!main.hasContent) return go("bring");
+    if (!nook.cushionAsked) return go("cushion");
+    go("ready");
+    if (!lampOn) light("lamp");
+  };
+  const resolveKid = (patch: { source?: boolean } = {}) => {
+    if (!nook.kidTimeAsked) return go("time");
+    if (!nook.beanbag) return go("cushion");
+    if (!(patch.source ?? !!child.source)) return go(kidTab === "own" ? "bring" : "stories");
+    go("ready");
+    if (!kidLampOn) light("lantern");
+  };
+  // After a step is saved: back to the summary when editing, otherwise on to whatever is still unset.
+  const afterStep = (k: "adult" | "kid") => {
+    if (editing) return go("ready");
+    if (k === "adult") resolveAdult();
+    else resolveKid();
+  };
+  // resolve* read the latest remembered values, so steps update the nook first and resolve on the next render.
+  const [advance, setAdvance] = useState<null | "adult" | "kid">(null);
+  useEffect(() => {
+    if (!advance) return;
+    setAdvance(null);
+    afterStep(advance);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advance]);
+
+  // ---- Leaving: never lose a recording in progress --------------------------------------------------------------------
+  const guard = (then: () => void) => {
+    if (s.rec.unfinished && (corner === "adult" || corner === "kid"))
+      return setPending({ kind: "leave", then });
+    then();
+  };
+  const finishAndLeave = async () => {
+    if (pending?.kind !== "leave") return;
+    setBusy(true);
+    await s.rec.finishQuietly();
+    setBusy(false);
+    const then = pending.then;
+    setPending(null);
+    then();
+  };
+
+  // Entering a corner adds a history entry, so the browser's Back returns home.
+  const enter = (c: Exclude<Corner, "home">, start: () => void) => {
+    pauseAllAudio();
+    if (corner === "home") window.history.pushState({ rb: c }, "");
+    else window.history.replaceState({ rb: c }, "");
+    setCorner(c);
+    start();
+  };
+  const toHome = () => {
+    pauseAllAudio();
+    setEditing(false);
+    setCorner("home");
+    if ((window.history.state as { rb?: string } | null)?.rb) window.history.replaceState(null, "");
+  };
+  const home = () => guard(toHome);
   const cornerRef = useRef(corner);
   cornerRef.current = corner;
-  const childRecRef = useRef(child.rec);
-  childRecRef.current = child.rec;
-  const adultRecRef = useRef(rec);
-  adultRecRef.current = rec;
-  const leavingRef = useRef(false);
-  // Installed or not, the session lives in memory only — wording follows where it's running.
-  const place = pwa.standalone ? "app" : "tab";
-
-  // Bumped when the session is discarded, so uploads still decoding can't bring discarded pages back.
-  const sessionGen = useRef(0);
-  const isCurrentSession = useCallback((g: number) => g === sessionGen.current, []);
-
-  const hasSession =
-    target !== null || !!text.trim() || images.length > 0 || !!rec.take || rec.unfinished;
-  /** Whether the session you are currently in has anything in it (what Exit session would discard). */
-  const activeHasSession = inChildren ? child.hasSession : hasSession;
-
-  // Review playback position, kept while visiting sample feedback (reset for a new recording).
-  const [reviewPos, setReviewPos] = useState(0);
-  useEffect(() => setReviewPos(0), [rec.take?.url]);
-
-  // Sample feedback is its own screen with a browser-history entry, so Back returns to Review with nothing lost.
-  const openSamples = () => {
-    window.history.pushState({ rb: "samples" }, "");
-    setView("samples");
-  };
-  const leaveSamples = () => {
-    if ((window.history.state as { rb?: string } | null)?.rb === "samples") window.history.back();
-    else setView("review");
-  };
-  // Browser Back/Forward also move in and out of the children's corner (it has a history entry of its own).
+  const unfinishedRef = useRef(false);
+  unfinishedRef.current = main.rec.unfinished || child.rec.unfinished;
   useEffect(() => {
     const onPop = () => {
-      const here = (window.history.state as { rb?: string } | null)?.rb;
-      if (here === "children") {
-        // Forward into the corner is never allowed while a main-session recording is still open.
-        if (cornerRef.current === "adult" && adultRecRef.current.unfinished)
-          return window.history.back();
-        return setCorner("children");
+      if (cornerRef.current === "home") return;
+      if (unfinishedRef.current) {
+        window.history.pushState({ rb: cornerRef.current }, "");
+        return setPending({ kind: "leave", then: toHome });
       }
-      if (cornerRef.current === "children") {
-        if (leavingRef.current) {
-          leavingRef.current = false;
-          return setCorner("adult");
-        }
-        // Back out of the corner mid-recording: stay put and explain first (the recording is finished and kept).
-        if (childRecRef.current.unfinished) {
-          window.history.pushState({ rb: "children" }, "");
-          return setHomeDialog("confirm");
-        }
-        pauseAllAudio();
-        return setCorner("adult");
-      }
-      setView((v) => (v === "samples" ? "review" : v));
+      pauseAllAudio();
+      setCorner("home");
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  const enterChildren = () => {
-    pauseAllAudio();
-    window.history.pushState({ rb: "children" }, "");
-    setCorner("children");
-  };
-  const leaveChildren = () => {
-    pauseAllAudio();
-    if ((window.history.state as { rb?: string } | null)?.rb === "children") {
-      leavingRef.current = true;
-      window.history.back();
-    } else setCorner("adult");
-  };
-  // Focus the new screen's heading when moving between Review and sample feedback.
-  const prevView = useRef<View>(view);
-  useEffect(() => {
-    if (view === "samples") document.getElementById("samples-h")?.focus();
-    if (view === "review" && prevView.current === "samples")
-      document.getElementById("review-h")?.focus();
-    prevView.current = view;
-  }, [view]);
 
-  // Sample walkthrough: separate state; exiting it never touches the personal session.
-  const [sample, setSample] = useState<SampleStage | null>(null);
-
-  // Usable content only: non-whitespace text, or at least one successfully loaded page.
-  const canContinue =
-    (mode === "paste" && text.trim().length > 0) || (mode === "upload" && images.length > 0);
-
-  // Pasted text only switches to the "ready" layout after a paste or when the reader leaves the field —
-  // never on the first typed character.
-  const [pasteDone, setPasteDone] = useState(false);
-  const textRef = useRef(text);
-  textRef.current = text;
-  useEffect(() => {
-    if (!text.trim()) setPasteDone(false); // all text removed → back to the empty paste state
-  }, [text]);
-
-  // "Change content" reopens the choices; Cancel returns to the method that was showing.
-  const [changing, setChanging] = useState(false);
-  const modeAtChange = useRef<InputMode>(null);
-  const readyFor = (m: InputMode) =>
-    (m === "upload" && images.length > 0) || (m === "paste" && !!text.trim() && pasteDone);
-  const contentReady = readyFor(mode);
-  const collapsed = contentReady && !changing;
-
-  const selectMode = (m: Exclude<InputMode, null>) => {
-    setMode(m);
-    if (changing && readyFor(m)) setChanging(false);
-  };
-  const commitPaste = () => {
-    if (!textRef.current.trim()) return;
-    setPasteDone(true);
-    setChanging(false);
-  };
-
-  // Space the fixed Continue bar needs at the bottom of the page.
-  const [barSpace, setBarSpace] = useState(0);
-  // Space the phone recording dock needs at the bottom of the reading screen.
-  const [dockSpace, setDockSpace] = useState(0);
-  const showBar = view === "prepare" && !sample && !inChildren && canContinue;
-
-  // Each view and sample stage starts at the top; the sticky header stays put.
+  // Screens start at the top on narrow layouts, where the page itself scrolls.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [view, sample, corner]);
+  }, [corner, screen, sample.step]);
 
-  // When the target is first set, keyboard and screen-reader users land on the newly revealed card.
-  const hadTarget = useRef(false);
+  // The first time something is saved, say where it lives.
+  const hadTake = useRef({ main: false, children: false });
   useEffect(() => {
-    if (target !== null && !hadTarget.current) document.getElementById("content-h")?.focus();
-    hadTarget.current = target !== null;
-  }, [target]);
-
-  // ---- Logo: go home without clearing anything -------------------------------------------------------------
-  const logoRef = useRef<HTMLButtonElement>(null);
-  const [homeDialog, setHomeDialog] = useState<null | "confirm" | "failed">(null);
-  const [stopping, setStopping] = useState(false);
-
-  const goHome = () => {
-    pauseAllAudio();
-    if (inChildren) return leaveChildren();
-    if (view !== "home") setResumeTo(view);
-    setView(hasSession ? "home" : "prepare");
-  };
-  const onLogo = () => {
-    if (sample) {
-      setSample(null); // leave the sample; the personal session is untouched
-      if (view !== "home") setResumeTo(view);
-      setView(hasSession ? "home" : "prepare");
-      return;
+    for (const x of [main, child]) {
+      const now = !!x.rec.take;
+      if (now && !hadTake.current[x.key] && nookLoaded && !nook.savedNoteShown && x.loaded) {
+        setNook({ savedNoteShown: true });
+        askToKeepStorage();
+        say("Saved on this device. You can delete it any time in Saved.");
+      }
+      hadTake.current[x.key] = now;
     }
-    if (activeRec.unfinished) return setHomeDialog("confirm");
-    goHome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [main.rec.take, child.rec.take]);
+
+  // ---- Undoable deletes -----------------------------------------------------------------------------------------------
+  const deleteSessionWithUndo = (x: ReadingSession, label: string) => {
+    const snap: Snapshot = x.takeOut();
+    if (x === child) setFeeling(null);
+    say(
+      `${label} deleted.`,
+      () => x.putBack(snap),
+      () => x.release(snap),
+    );
   };
-  const stopAndGoHome = async () => {
-    if (homeDialog === "failed") {
-      setHomeDialog(null);
-      goHome();
-      return;
+  const deleteRecording = (x: ReadingSession) => {
+    const take = x.rec.detach();
+    if (!take) return;
+    go("read");
+    say(
+      "Recording deleted.",
+      () => x.rec.restore(take),
+      () => URL.revokeObjectURL(take.url),
+    );
+  };
+  const removePage = (x: ReadingSession, i: number) => {
+    const before = x.pages;
+    const gone = before[i];
+    if (!gone) return;
+    x.setPages(before.filter((_, k) => k !== i));
+    say(
+      `Page ${i + 1} removed.`,
+      () => x.setPages(before),
+      () => URL.revokeObjectURL(gone.url),
+    );
+  };
+
+  // ---- Microphone: explained once, then the browser asks ------------------------------------------------------------
+  const startRecording = (x: ReadingSession) => {
+    if (!nook.micExplained) return setMicFor(x);
+    void x.rec.start();
+  };
+
+  // ---- Corners ----------------------------------------------------------------------------------------------------------
+  const goAdult = () =>
+    enter("adult", () => {
+      setLampOn(false);
+      resolveAdult();
+    });
+  const goKid = () =>
+    enter("kid", () => {
+      setKidLampOn(false);
+      resolveKid();
+    });
+  const goSample = (step: 1 | 2 | 3 = 1) =>
+    enter("sample", () => {
+      setSample({ step, note: 0 });
+    });
+  const goSaved = () => guard(() => enter("saved", () => {}));
+
+  // Choosing a different story (or own content) puts the kept recording aside, with Undo.
+  const beginKid = (source: { kind: "story"; slug: string } | { kind: "own" }) => {
+    const same =
+      child.source?.kind === source.kind &&
+      (source.kind === "own" ||
+        (child.source?.kind === "story" && child.source.slug === source.slug));
+    if (!same) {
+      const prevSource = child.source;
+      const prevPage = child.page;
+      const take = child.rec.detach();
+      setFeeling(null);
+      child.setPage(0);
+      if (take) {
+        const name =
+          prevSource?.kind === "story"
+            ? `“${getStory(prevSource.slug)?.title ?? "the story"}”`
+            : "your own story";
+        say(
+          `Your recording of ${name} was deleted.`,
+          () => {
+            child.setSource(prevSource);
+            child.setPage(prevPage);
+            child.rec.restore(take);
+          },
+          () => URL.revokeObjectURL(take.url),
+        );
+      }
     }
-    setStopping(true);
-    const kept = await activeRec.finishQuietly(); // finishes (recording or paused), keeps the audio, releases the mic
-    setStopping(false);
-    if (!kept) return setHomeDialog("failed"); // explain before navigating away
-    setHomeDialog(null);
-    pauseAllAudio();
-    if (inChildren) {
-      child.setView("review"); // coming back opens the finished recording — it never restarts recording
-      return leaveChildren();
-    }
-    setResumeTo("review"); // Resume opens the finished recording — it never restarts recording
-    setView("home");
+    child.setSource(source);
+    if (editing) return go("ready");
+    resolveKid({ source: true });
   };
 
-  // ---- Exit session: the one explicit way to discard ---------------------------------------------------------
-  const exitRef = useRef<HTMLButtonElement>(null);
-  const [exitOpen, setExitOpen] = useState(false);
-  const [focusWelcome, setFocusWelcome] = useState(false);
-
-  const discardSession = () => {
-    if (inChildren) {
-      // Only the children's session goes; the main session is untouched.
-      child.discard();
-      pauseAllAudio();
-      setHomeDialog(null);
-      setExitOpen(false);
-      requestAnimationFrame(() => document.getElementById("child-h")?.focus());
-      return;
-    }
-    sessionGen.current += 1;
-    rec.discard(); // stops recording without keeping it, releases the mic, revokes audio
-    pauseAllAudio();
-    images.forEach((i) => URL.revokeObjectURL(i.url));
-    setImages([]);
-    setText("");
-    setMode(null);
-    setTarget(null);
-    setPasteDone(false);
-    setChanging(false);
-    setResumeTo("prepare");
-    setHomeDialog(null);
-    hadTarget.current = false;
-    setView("prepare");
-    setExitOpen(false);
-    setFocusWelcome(true); // the Exit button is gone, so focus the fresh welcome heading
-  };
-  useEffect(() => {
-    if (!focusWelcome) return;
-    document.getElementById("welcome-h")?.focus();
-    setFocusWelcome(false);
-  }, [focusWelcome]);
-
-  // Review's "Start a new session" keeps the target (as before) and clears content and audio.
-  const newSession = () => {
-    rec.clear();
-    images.forEach((i) => URL.revokeObjectURL(i.url));
-    setImages([]);
-    setText("");
-    setMode(null);
-    setChanging(false);
-    setView("prepare");
-  };
-
-  const summary = [
-    target !== null && `${target} min target`,
-    images.length > 0 && `${images.length} ${images.length === 1 ? "page" : "pages"}`,
-    !!text.trim() && "pasted text",
-    rec.take && `recording ${formatTime(rec.take.duration)}`,
-  ].filter(Boolean);
-
-  const welcome = (
-    <header className="text-left sm:text-center">
-      <h1
-        id="welcome-h"
-        tabIndex={-1}
-        className="display-serif text-[2rem] text-balance text-heading outline-none sm:mx-auto sm:max-w-[18ch] sm:text-[2.75rem]"
-      >
-        What shall we read aloud <em>together</em> today?
-      </h1>
-    </header>
+  // ---- Scene ----------------------------------------------------------------------------------------------------------
+  const sceneCushion = preview.cushion ?? nook.cushion;
+  const sceneBeanbag = preview.beanbag ?? nook.beanbag;
+  const scene = (
+    <Nook
+      focus={kid ? "child" : corner === "adult" ? "adult" : "home"}
+      minutes={preview.minutes !== undefined && !kid ? preview.minutes : nook.minutes}
+      reading={
+        corner === "sample"
+          ? "sample"
+          : main.hasContent
+            ? main.mode === "upload"
+              ? "pages"
+              : "text"
+            : "none"
+      }
+      cushion={sceneCushion}
+      lamp={lampOn}
+      kidCushion={sceneBeanbag}
+      kidBook={!!child.source}
+      kidLamp={kidLampOn}
+      shelf={(main.rec.take ? 1 : 0) + (child.rec.take ? 1 : 0)}
+    />
   );
 
-  /** "Just exploring? Try a sample session →": inside the target card at every width; on screens without that card it stands alone. */
-  const sampleLink = (
-    <>
-      Just exploring?{" "}
-      <button
-        className="text-link inline-flex min-h-11 items-center gap-1"
-        onClick={() => setSample("read")}
-      >
-        Try a sample session <ArrowRight className="size-4" aria-hidden />
-      </button>
-    </>
-  );
-  // What the doorway says: a retained children's session (something real in it — never just browsing the catalogue), or the
-  // plain invitation. Continuing it is just re-entering the corner; nothing is created, restarted or played.
-  const childStory = child.source?.kind === "story" ? getStory(child.source.slug) : null;
-  const childResume: DoorwayResume | null = child.hasSession
-    ? { title: childStory?.title ?? "Your own story", preparing: child.source === null }
-    : null;
-  const doorway = <DoorwayInvite onEnter={enterChildren} resume={childResume} />;
-  // The welcome screen: the target card, with the doorway invitation below it.
-  const targetCardShown =
-    !inChildren && !sample && view === "prepare" && !contentReady && target === null;
-  const childBar =
-    inChildren && child.view === "choose" && child.tab === "own" && child.canContinue;
-  const childDock = inChildren && child.view === "read";
-  const mainWidth = sample
-    ? sample === "read"
-      ? "max-w-6xl"
-      : "max-w-3xl"
-    : inChildren
-      ? child.view === "read"
-        ? "max-w-6xl"
-        : child.view === "choose"
-          ? "max-w-5xl"
-          : "max-w-3xl"
-      : view === "read"
-        ? "max-w-6xl"
-        : "max-w-3xl";
+  // ---- Panels ----------------------------------------------------------------------------------------------------------
+  const story = child.source?.kind === "story" ? getStory(child.source.slug) : null;
+  const kidTitle = story ? story.title : "Your own story";
+  const adultSub =
+    nook.minutes !== null
+      ? `${nook.minutes} minutes a day${nook.cushion ? ` · ${colourName(nook.cushion)} cushion` : ""}`
+      : "Bring your own pages or text.";
+  const kidSub = child.source
+    ? `Carry on with ${kidTitle}`
+    : "Eight picture stories, or bring your own.";
+  const contentLabel = (x: ReadingSession) =>
+    x.mode === "upload" && x.pages.length
+      ? `${x.pages.length} photographed ${x.pages.length === 1 ? "page" : "pages"}`
+      : x.text.trim()
+        ? "Pasted passage"
+        : "Nothing added yet";
 
-  // Room the fixed bottom bar (Continue / recording dock) needs, reserved under the footer so nothing slides beneath it.
-  const reserved =
-    (showBar || childBar) && barSpace
-      ? barSpace + 24
-      : ((view === "read" && !sample && !inChildren) || childDock) && dockSpace
-        ? dockSpace + 16
-        : undefined;
-
-  return (
-    <>
-      <div
-        className="flex min-h-dvh flex-col"
-        style={reserved ? { paddingBottom: reserved } : undefined}
-      >
-        {/* Compact, opaque, sticky header: the logo goes home; Exit session / Exit sample sit on the right. */}
-        <header className="sticky top-0 z-20 border-b border-border bg-background">
-          {/* Slimmer on short screens (landscape phones) so the reading area isn't squeezed between header and dock. */}
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8 [@media(max-height:480px)]:h-12">
-            <button
-              ref={logoRef}
-              onClick={onLogo}
-              className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1 text-primary hover:bg-tint"
-              aria-label="Reading Buddy home"
-            >
-              {/* Compact serif monogram: the B tucks slightly under the R, both stay readable. */}
-              <span
-                className="font-logo flex items-baseline text-[1.75rem] leading-none"
-                aria-hidden
-              >
-                <span>R</span>
-                <span className="-ml-[0.14em]">B</span>
-              </span>
-              <BookMark className="h-6 w-8" />
-            </button>
-            {sample ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="rounded-md bg-apricot-tint px-2.5 py-1 text-sm font-medium">
-                  Sample session
-                </span>
-                <button className="btn-header" onClick={() => setSample(null)}>
-                  <LogOut className="size-4" aria-hidden /> Exit sample
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 sm:gap-3">
-                {!inChildren && (view === "prepare" || view === "home") && !pwa.standalone && (
-                  <InstallButton
-                    canInstall={pwa.canInstall}
-                    ios={pwa.ios}
-                    onInstall={() => void pwa.install()}
-                  />
-                )}
-                {activeHasSession && (
-                  <button ref={exitRef} className="btn-header" onClick={() => setExitOpen(true)}>
-                    <LogOut className="size-4" aria-hidden /> Exit session
-                  </button>
-                )}
-              </div>
+  let panel: ReactNode = null;
+  let wide = false;
+  if (corner === "home") {
+    panel = (
+      <HomePanel
+        welcomeBack={nook.remembered}
+        adultSub={adultSub}
+        kidSub={kidSub}
+        onAdult={goAdult}
+        onKid={goKid}
+        onSample={() => goSample()}
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              Saved on this device only. Nothing is uploaded.
+            </p>
+            {!pwa.standalone && (
+              <InstallButton
+                canInstall={pwa.canInstall}
+                ios={pwa.ios}
+                onInstall={() => void pwa.install()}
+              />
             )}
           </div>
-        </header>
-
-        <main
-          className={`mx-auto flex w-full flex-col gap-4 px-4 py-8 sm:px-6 sm:py-12 lg:gap-6 ${mainWidth}`}
-        >
-          {!pwa.online && (
-            <p role="status" className="rounded-2xl border border-border bg-card px-4 py-2 text-sm">
-              You're offline. Reading Buddy still works in this {place}.
-            </p>
-          )}
-          {/* A new version is only offered when nothing would be lost by reloading. */}
-          {shouldOfferUpdate({
-            updateReady: pwa.updateReady,
-            sample: !!sample,
-            hasSession: hasSession || child.hasSession,
-            view: inChildren ? "read" : view,
-          }) && (
-            <p
-              role="status"
-              className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2 text-sm"
-            >
-              A new version of Reading Buddy is ready.
-              <button className="text-link" onClick={pwa.applyUpdate}>
-                Update now
-              </button>
-            </p>
-          )}
-
-          {inChildren ? (
-            <ChildrenCorner
-              s={child}
-              onDone={onLogo}
-              onReserveBar={setBarSpace}
-              onReserveDock={setDockSpace}
-            />
-          ) : sample ? (
-            <SampleSession
-              stage={sample}
-              setStage={setSample}
-              onStartMine={() => setSample(null)}
-            />
-          ) : (
-            <>
-              {view === "home" && (
-                <>
-                  {welcome}
-                  <CompanionPerch pose="wave" animate>
-                    <section className="card reveal" aria-labelledby="resume-h">
-                      <h2 id="resume-h" className="text-xl font-medium">
-                        Your session is waiting
-                      </h2>
-                      {summary.length > 0 && (
-                        <p className="mt-1 text-muted-foreground">{summary.join(" · ")}</p>
-                      )}
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {pwa.standalone
-                          ? "Closing the app clears it."
-                          : "Closing or reloading this tab clears it."}
-                      </p>
-                      <button
-                        className="btn-primary mt-6 w-full sm:w-auto"
-                        onClick={() => setView(resumeTo)}
-                      >
-                        Resume session <ArrowRight className="size-[18px]" aria-hidden />
-                      </button>
-                    </section>
-                  </CompanionPerch>
-                  {doorway}
-                </>
-              )}
-
-              {view === "prepare" && (
-                <>
-                  {contentReady ? <h1 className="sr-only">Your reading</h1> : welcome}
-
-                  {targetCardShown ? (
-                    <>
-                      <TargetCard
-                        target={target}
-                        onSet={setTarget}
-                        footer={
-                          // Inside the card, beneath the target choices, at every width (the only copy of the link).
-                          <p className="mt-4 text-center text-muted-foreground">{sampleLink}</p>
-                        }
-                      />
-                      {doorway}
-                    </>
-                  ) : (
-                    <TargetCard target={target} onSet={setTarget} />
-                  )}
-
-                  {target !== null && (
-                    <PrepareStep
-                      mode={mode}
-                      onSelectMode={selectMode}
-                      text={text}
-                      setText={setText}
-                      images={images}
-                      setImages={setImages}
-                      collapsed={collapsed}
-                      changing={changing}
-                      onChangeContent={() => {
-                        modeAtChange.current = mode;
-                        setChanging(true);
-                      }}
-                      onCancelChange={() => {
-                        setMode(modeAtChange.current);
-                        setChanging(false);
-                      }}
-                      onPasteCommit={commitPaste}
-                      onPagesAdded={() => setChanging(false)}
-                      generation={sessionGen.current}
-                      isCurrentSession={isCurrentSession}
-                    />
-                  )}
-
-                  {/* Fixed to the bottom normally; while a phone keyboard is open it sits here, right under the content. */}
-                  {showBar && (
-                    <ContinueBar onContinue={() => setView("read")} onReserve={setBarSpace} />
-                  )}
-                </>
-              )}
-
-              {view === "prepare" && target !== null && !contentReady && doorway}
-
-              {(view === "prepare" || view === "home") && !targetCardShown && (
-                <p className="mt-2 text-center text-muted-foreground">{sampleLink}</p>
-              )}
-
-              {view === "read" && mode && target !== null && (
-                <ReadStep
-                  mode={mode}
-                  text={text}
-                  images={images}
-                  target={target}
-                  recState={rec.state}
-                  micError={rec.micError}
-                  problem={rec.problem}
-                  elapsed={rec.elapsed}
-                  takeDuration={rec.take ? rec.take.duration : null}
-                  onStart={() => void rec.start()}
-                  onPause={rec.pause}
-                  onResume={rec.resume}
-                  onPreview={rec.previewSoFar}
-                  onFinish={rec.finish}
-                  onUpload={rec.upload}
-                  onBack={() => setView("prepare")}
-                  onReview={() => setView("review")}
-                  onReserve={setDockSpace}
-                />
-              )}
-
-              {view === "review" && target !== null && (
-                <ReviewStep
-                  take={rec.take}
-                  target={target}
-                  onBack={() => setView("read")}
-                  onDiscard={() => {
-                    rec.clear();
-                    setView("read");
-                  }}
-                  onNewSession={newSession}
-                  onExploreSamples={openSamples}
-                  startAt={reviewPos}
-                  onPosition={setReviewPos}
-                />
-              )}
-
-              {view === "samples" && (
-                <>
-                  <div>
-                    <button className="btn-quiet -ml-3" onClick={leaveSamples}>
-                      <ArrowLeft className="size-4" aria-hidden /> Back to recording
-                    </button>
-                    <h1
-                      id="samples-h"
-                      tabIndex={-1}
-                      className="display-serif mt-3 text-left text-[1.875rem] text-balance outline-none sm:text-center sm:text-[2.375rem]"
-                    >
-                      Sample feedback
-                    </h1>
-                  </div>
-                  <SampleFeedback />
-                </>
-              )}
-            </>
-          )}
-        </main>
-
-        {/* Sits at the bottom of the viewport on short pages and follows the content on long ones. */}
-        <footer className="mx-auto mt-auto w-full max-w-3xl px-4 pt-4 pb-6 text-center text-sm text-muted-foreground sm:px-6">
-          <p>
-            <Lock className="mr-1.5 -mt-0.5 inline size-4" aria-hidden />
-            Your content stays in this {place}. Nothing is uploaded.
-          </p>
-          {!sample && activeHasSession && (inChildren || view !== "home") && (
-            <p className="mt-0.5">
-              {pwa.standalone
-                ? "Closing the app clears your session."
-                : "Reloading or closing this tab clears your session."}
-            </p>
-          )}
-        </footer>
-      </div>
-
-      <SessionDialog
-        open={homeDialog !== null}
-        onOpenChange={(o) => !o && setHomeDialog(null)}
-        title={homeDialog === "failed" ? "The recording couldn't be kept" : "Return home?"}
-        cancelLabel={
-          homeDialog === "failed"
-            ? "Stay here"
-            : activeRec.state === "paused"
-              ? "Stay here"
-              : "Keep recording"
         }
-        confirmLabel={homeDialog === "failed" ? "Go home anyway" : "Finish and go home"}
-        onConfirm={() => void stopAndGoHome()}
-        busy={stopping}
-        returnFocus={logoRef}
-      >
-        {homeDialog === "failed" ? (
-          <p>
-            {activeRec.problem ?? "No audio was captured, so there's nothing to keep."} Your target
-            and content are still here.
-          </p>
-        ) : (
-          <p>
-            Going home will finish your {activeRec.state === "paused" ? "paused " : ""}recording and
-            keep it. Your recording and session will stay available in this {place}.
-          </p>
-        )}
-      </SessionDialog>
+      />
+    );
+  } else if (corner === "sample") {
+    wide = true;
+    panel = (
+      <SamplePanel
+        step={sample.step}
+        note={sample.note}
+        onStep={(step) => setSample((x) => ({ ...x, step }))}
+        onNote={(note) => setSample((x) => ({ ...x, note }))}
+        onHome={toHome}
+        onStartMine={goAdult}
+      />
+    );
+  } else if (corner === "saved") {
+    wide = true;
+    const items: SavedItem[] = [];
+    for (const [x, where] of [
+      [main, "Main practice"],
+      [child, "Children’s corner"],
+    ] as const) {
+      if (x.isEmpty) continue;
+      const bytes = x.pages.reduce((n, p) => n + p.blob.size, 0) + recordingBytes(x.rec.take);
+      const title = x === child ? (x.source ? kidTitle : contentLabel(x)) : contentLabel(x);
+      const parts = [
+        where,
+        x.rec.take ? `recording ${formatTime(x.rec.take.duration)}` : "no recording yet",
+      ];
+      if (bytes) parts.push(formatBytes(bytes));
+      items.push({
+        id: x.key,
+        title,
+        detail: parts.join(" · "),
+        bytes,
+        onDelete: () => deleteSessionWithUndo(x, `“${title}”`),
+      });
+    }
+    const nookBits = [
+      nook.minutes !== null && `${nook.minutes} min a day`,
+      nook.cushion && `${colourName(nook.cushion)} cushion`,
+      nook.beanbag && `${colourName(nook.beanbag)} beanbag`,
+      nook.kidMinutes !== null && `${nook.kidMinutes} min in the corner`,
+    ].filter(Boolean);
+    panel = (
+      <SavedPanel
+        items={items}
+        nookLine={nookBits.length ? nookBits.join(" · ") : "Nothing remembered yet."}
+        hasNook={nook.remembered || nookBits.length > 0}
+        onHome={toHome}
+        onDeleteAll={() => setPending({ kind: "deleteAll" })}
+        onForget={() => setPending({ kind: "forget" })}
+      />
+    );
+  } else if (screen === "time") {
+    panel = (
+      <TimeStep
+        key={`${corner}-time`}
+        kid={kid}
+        value={kid ? nook.kidMinutes : nook.minutes}
+        editing={editing}
+        step={1}
+        onBack={() => (editing ? go("ready") : toHome())}
+        onPreview={(m) => !kid && setPreview({ minutes: m })}
+        onSave={(m) => {
+          setNook(kid ? { kidMinutes: m, kidTimeAsked: true } : { minutes: m });
+          sound("tick");
+          setAdvance(kid ? "kid" : "adult");
+        }}
+      />
+    );
+  } else if (screen === "cushion") {
+    panel = (
+      <ColourStep
+        key={`${corner}-colour`}
+        kid={kid}
+        value={kid ? nook.beanbag : nook.cushion}
+        editing={editing}
+        step={kid ? 2 : 3}
+        onBack={() => (editing ? go("ready") : go(kid ? "time" : "bring"))}
+        onPreview={(hex) => {
+          setPreview(kid ? { beanbag: hex } : { cushion: hex });
+          sound("cushion");
+        }}
+        onSave={(hex) => {
+          setNook(kid ? { beanbag: hex } : { cushion: hex, cushionAsked: true });
+          setAdvance(kid ? "kid" : "adult");
+        }}
+        onSkip={
+          kid
+            ? undefined
+            : () => {
+                setNook({ cushion: null, cushionAsked: true });
+                setAdvance("adult");
+              }
+        }
+      />
+    );
+  } else if (screen === "stories") {
+    wide = true;
+    panel = (
+      <StoriesStep
+        editing={editing}
+        onBack={() => (editing ? go("ready") : go("cushion"))}
+        onTab={(t) => {
+          setKidTab(t);
+          if (t === "own") {
+            if (!child.mode) child.setMode("paste");
+            setScreen("bring");
+          }
+        }}
+        filter={filter}
+        onFilter={setFilter}
+        lengthFilter={lengthFilter}
+        onClearLength={() => setLengthFilter(null)}
+        onRead={(st) => beginKid({ kind: "story", slug: st.slug })}
+      />
+    );
+  } else if (screen === "bring") {
+    panel = (
+      <BringStep
+        key={corner}
+        s={s}
+        kid={kid}
+        editing={editing}
+        step={kid ? 3 : 2}
+        title={kid ? "Bring a story you love" : "What are you reading today?"}
+        lead={
+          kid
+            ? "Paste the words, or add photos of the pages. A grown-up can help."
+            : "Paste a passage or add photos of your pages."
+        }
+        tabs={
+          kid ? (
+            <KidTabs
+              tab="own"
+              onTab={(t) => {
+                setKidTab(t);
+                if (t === "pick") setScreen("stories");
+              }}
+            />
+          ) : undefined
+        }
+        nextLabel={kid ? "Light the lantern" : "Continue"}
+        onBack={() => (editing ? go("ready") : kid ? go("cushion") : go("time"))}
+        onNext={() => {
+          if (kid) return beginKid({ kind: "own" });
+          if (editing) return go("ready");
+          resolveAdult();
+        }}
+        onRemovePage={(i) => removePage(s, i)}
+        onSound={sound}
+      />
+    );
+  } else if (screen === "ready") {
+    const rows = kid
+      ? [
+          {
+            label: "Reading time",
+            value: nook.kidMinutes ? `${nook.kidMinutes} minutes` : "No time set",
+            onChange: () => go("time", { editing: true }),
+          },
+          {
+            label: "Beanbag",
+            value: colourName(nook.beanbag) ?? "None",
+            onChange: () => go("cushion", { editing: true }),
+          },
+          {
+            label: "Story",
+            value:
+              child.source?.kind === "own"
+                ? `Your own story · ${contentLabel(child).toLowerCase()}`
+                : kidTitle,
+            onChange: () =>
+              go(child.source?.kind === "own" ? "bring" : "stories", { editing: true }),
+          },
+        ]
+      : [
+          {
+            label: "Reading time",
+            value: `${nook.minutes} minutes`,
+            onChange: () => go("time", { editing: true }),
+          },
+          {
+            label: "Your reading",
+            value: contentLabel(main),
+            onChange: () => go("bring", { editing: true }),
+          },
+          {
+            label: "Cushion",
+            value: colourName(nook.cushion) ?? "None",
+            onChange: () => go("cushion", { editing: true }),
+          },
+        ];
+    panel = (
+      <ReadyPanel
+        kid={kid}
+        lampOn={kid ? kidLampOn : lampOn}
+        rows={rows}
+        readLabel={kid ? "Open the story" : "Sit down and read"}
+        onRead={() => go("read")}
+        extra={
+          s.rec.take ? (
+            <button type="button" className="btn-link self-start px-0" onClick={() => go("review")}>
+              Listen to your last recording ({formatTime(s.rec.take.duration)})
+            </button>
+          ) : undefined
+        }
+      />
+    );
+  } else if (screen === "review") {
+    panel = kid ? (
+      <KidReview
+        title={kidTitle}
+        take={child.rec.take}
+        feeling={feeling}
+        ownContent={child.source?.kind === "own"}
+        startAt={reviewPos.children}
+        onPosition={(t) => setReviewPos((p) => ({ ...p, children: t }))}
+        onFeeling={setFeeling}
+        onAction={(a: KidResponseAction) => {
+          setKidTab("pick");
+          setLengthFilter(
+            a === "shorter"
+              ? story
+                ? { kind: "shorter", words: readingWords(story), title: story.title }
+                : { kind: "short" }
+              : null,
+          );
+          setKidLampOn(false);
+          go("stories");
+        }}
+        onChooseAnother={() => {
+          setKidTab("pick");
+          setLengthFilter(null);
+          setKidLampOn(false);
+          go("stories");
+        }}
+        onDone={home}
+        more={[
+          { label: "Record again", onSelect: () => go("read") },
+          { label: "Delete recording", danger: true, onSelect: () => deleteRecording(child) },
+        ]}
+      />
+    ) : (
+      <AdultReview
+        take={main.rec.take}
+        target={nook.minutes}
+        startAt={reviewPos.main}
+        onPosition={(t) => setReviewPos((p) => ({ ...p, main: t }))}
+        onRecordAgain={() => go("read")}
+        onBackToNook={() => go("ready")}
+        more={[
+          { label: "See sample notes", onSelect: () => goSample(3) },
+          {
+            label: "Start a new session",
+            onSelect: () => {
+              deleteSessionWithUndo(main, "Your passage and recording were");
+              go("bring");
+            },
+          },
+          { label: "Delete recording", danger: true, onSelect: () => deleteRecording(main) },
+        ]}
+      />
+    );
+  }
 
-      <SessionDialog
-        open={exitOpen}
-        onOpenChange={setExitOpen}
-        title={inChildren ? "Leave the children’s corner?" : "Leave this session?"}
-        cancelLabel="Stay in session"
-        confirmLabel="Leave and discard"
-        onConfirm={discardSession}
-        returnFocus={exitRef}
-      >
-        {inChildren ? (
-          <>
-            <p>
-              Your chosen story, any pages or text you added here, and your recording from the
-              children’s corner will be cleared. This can’t be undone.
-            </p>
-            {hasSession && <p>Your main Reading Buddy session isn’t affected.</p>}
-          </>
+  // ---- Reading screen ------------------------------------------------------------------------------------------------
+  const reading = (corner === "adult" || corner === "kid") && screen === "read";
+  let reader: ReactNode = null;
+  if (reading) {
+    const size = kid ? textSize.children : textSize.main;
+    const setSize = (n: number) => setTextSize((t) => ({ ...t, [kid ? "children" : "main"]: n }));
+    const isStory = kid && child.source?.kind === "story";
+    const pages = s.mode === "upload" && !isStory;
+    const pg = s.pages[Math.min(s.page, s.pages.length - 1)];
+    const turn = (n: number) => {
+      s.setPage(n);
+      sound("page");
+    };
+    const recorder = (
+      <Recorder
+        rec={s.rec}
+        target={kid ? nook.kidMinutes : nook.minutes}
+        kid={kid}
+        onStart={() => startRecording(s)}
+        onListenBack={() => go("review")}
+      />
+    );
+    reader = (
+      <div className="flex min-h-0 flex-1 flex-col gap-4 wide:flex-row wide:gap-6">
+        <ReaderFrame
+          label={isStory ? kidTitle : kid ? "Your story" : "Your reading"}
+          onBack={() =>
+            guard(() => {
+              go("ready");
+            })
+          }
+          tools={
+            isStory && story ? (
+              <>
+                <TextSize size={size} onSize={setSize} />
+                <AboutStory story={story} className="hidden sm:inline-flex" />
+                <Pager
+                  page={Math.min(child.page, story.pageCount - 1)}
+                  total={story.pageCount}
+                  onPage={turn}
+                />
+              </>
+            ) : (
+              <>
+                {(!pages || pg?.words) && <TextSize size={size} onSize={setSize} />}
+                {pages && s.pages.length > 1 && (
+                  <Pager
+                    page={Math.min(s.page, s.pages.length - 1)}
+                    total={s.pages.length}
+                    onPage={turn}
+                  />
+                )}
+              </>
+            )
+          }
+        >
+          {isStory && story ? (
+            <StoryReader
+              story={story}
+              textSize={size}
+              onTextSize={setSize}
+              controls={false}
+              page={child.page}
+              onPage={turn}
+            />
+          ) : pages ? (
+            <PagesView pages={s.pages} page={s.page} size={size} />
+          ) : (
+            <PassageText text={s.text} size={size} kid={kid} />
+          )}
+        </ReaderFrame>
+        {recorder}
+      </div>
+    );
+  }
+
+  const offerUpdate = shouldOfferUpdate({
+    updateReady: pwa.updateReady,
+    sample: corner === "sample",
+    hasSession: main.rec.unfinished || child.rec.unfinished,
+    view: corner === "home" ? "home" : "read",
+  });
+  const modeLabel =
+    corner === "adult"
+      ? "Main practice"
+      : kid
+        ? "Children’s corner"
+        : corner === "sample"
+          ? "Sample"
+          : "";
+
+  return (
+    <div className="flex min-h-dvh flex-col wide:h-dvh wide:overflow-hidden">
+      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4 wide:static wide:px-6">
+        <button
+          type="button"
+          onClick={home}
+          className="-ml-1 flex items-center gap-1.5 rounded-[10px] p-1"
+          aria-label="Reading Buddy home"
+        >
+          <span className="font-logo flex items-baseline text-[1.75rem] leading-none" aria-hidden>
+            <span>R</span>
+            <span className="-ml-[0.14em]">B</span>
+          </span>
+          <BookMark className="h-6 w-8" />
+        </button>
+        <div className="flex items-center gap-1">
+          {modeLabel && (
+            <span className="mr-2 hidden text-sm text-muted-foreground sm:inline">{modeLabel}</span>
+          )}
+          <button
+            type="button"
+            className="btn-icon"
+            aria-pressed={nook.sound}
+            aria-label="Sound"
+            title={nook.sound ? "Sound on" : "Sound off"}
+            onClick={() => {
+              const on = !nook.sound;
+              setNook({ sound: on });
+              if (on) playCue("tick");
+            }}
+          >
+            {nook.sound ? (
+              <Volume2 className="size-5" aria-hidden />
+            ) : (
+              <VolumeX className="size-5" aria-hidden />
+            )}
+          </button>
+          <button
+            type="button"
+            className="btn-icon"
+            aria-label="Saved on this device"
+            title="Saved on this device"
+            onClick={goSaved}
+          >
+            <FolderClosed className="size-5" aria-hidden />
+          </button>
+        </div>
+      </header>
+
+      {(!pwa.online || offerUpdate) && (
+        <p
+          role="status"
+          className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-raised px-4 py-2 text-sm wide:mx-6"
+        >
+          {!pwa.online
+            ? "You’re offline. Reading Buddy still works here."
+            : "A new version of Reading Buddy is ready."}
+          {pwa.online && offerUpdate && (
+            <button type="button" className="text-link" onClick={pwa.applyUpdate}>
+              Update now
+            </button>
+          )}
+        </p>
+      )}
+
+      <main className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4 wide:flex-row wide:gap-6 wide:px-6 wide:pb-6">
+        {reading ? (
+          reader
         ) : (
           <>
-            <p>
-              Your reading target, added content and any recording will be cleared. This can't be
-              undone.
-            </p>
-            {child.hasSession && <p>Your children’s corner session isn’t affected.</p>}
+            <div
+              className={`relative shrink-0 overflow-hidden rounded-[20px] bg-[#1C2541] ${
+                corner === "home" ? "h-[clamp(240px,46vw,440px)]" : "h-[clamp(200px,40vw,440px)]"
+              } wide:h-auto wide:min-w-0 wide:flex-1`}
+            >
+              {scene}
+            </div>
+            <section
+              aria-label={modeLabel || "Reading Buddy"}
+              className={`panel wide:min-h-0 wide:shrink-0 ${wide ? "wide:w-[35rem]" : "wide:w-[27.5rem]"}`}
+            >
+              {panel}
+            </section>
           </>
         )}
-        {activeRec.unfinished && (
-          <p className="font-medium text-foreground">
-            {activeRec.state === "paused"
-              ? "You have a paused recording — leaving will discard it."
-              : "You're recording right now — leaving will stop and discard it."}
+      </main>
+
+      <Toast toast={pending ? null : toast} onDone={() => setToast(null)} />
+
+      <Confirm
+        open={pending?.kind === "leave"}
+        onCancel={() => setPending(null)}
+        onConfirm={() => void finishAndLeave()}
+        busy={busy}
+        title="Finish recording and go back?"
+        body={<p>Your recording so far will be kept on this device.</p>}
+        confirmLabel="Finish and go back"
+        cancelLabel="Keep reading"
+      />
+      <Confirm
+        open={pending?.kind === "deleteAll"}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          for (const x of [main, child]) {
+            x.rec.discard();
+            x.release(x.takeOut());
+          }
+          setFeeling(null);
+          setPending(null);
+          say("All readings and recordings deleted.");
+        }}
+        danger
+        title="Delete all readings and recordings?"
+        body={
+          <p>
+            Everything saved on this device will be removed, from both the main practice and the
+            children’s corner. This can’t be undone.
           </p>
-        )}
-      </SessionDialog>
-    </>
+        }
+        confirmLabel="Delete all"
+      />
+      <Confirm
+        open={pending?.kind === "forget"}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          forgetNook();
+          setLampOn(false);
+          setKidLampOn(false);
+          setPending(null);
+          toHome();
+          say("Your nook was forgotten. Saved readings are still in Saved.");
+        }}
+        title="Forget your nook?"
+        body={
+          <p>
+            Your reading times, cushion and beanbag go back to the start. Saved readings stay until
+            you delete them.
+          </p>
+        }
+        confirmLabel="Forget nook"
+      />
+      <Modal
+        open={!!micFor}
+        onClose={() => setMicFor(null)}
+        title={<span className={kid ? "kid" : ""}>Buddy needs to hear you</span>}
+        description="Your browser will ask to use the microphone. Recordings stay on this device."
+      >
+        <div className="rb-acts">
+          <button type="button" className="btn-secondary" onClick={() => setMicFor(null)}>
+            Not now
+          </button>
+          <button
+            type="button"
+            className="btn-primary min-h-12 text-base"
+            onClick={() => {
+              const x = micFor;
+              setMicFor(null);
+              setNook({ micExplained: true });
+              if (x) void x.rec.start();
+            }}
+          >
+            Allow microphone
+          </button>
+        </div>
+      </Modal>
+    </div>
   );
 }

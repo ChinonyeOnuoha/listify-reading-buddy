@@ -1,30 +1,71 @@
 # Design system
 
-The visual language of the app: ink blue, warm ivory and apricot, with a small bookmark companion. Tokens live in `src/styles.css`; contrast is asserted by `src/test/contrast.test.ts`. Layout and behaviour are described in [user-flow.md](user-flow.md).
+Reading Buddy is a night-time reading nook: deep navy surfaces, warm cream text, one amber accent, and an illustrated room that comes together as you set it up. Tokens live in `src/styles.css`; contrast is asserted by `src/test/contrast.test.ts`. Behaviour is described in [user-flow.md](user-flow.md).
 
-Direction: **ink blue, warm ivory and apricot**, with a small bookmark companion. 
+## Colour
+Solid colours only. Surfaces step up in lightness within one navy hue instead of being outlined.
 
-- **Tokens** (all in `src/styles.css`, solid colours only): page `#F6F2E8`; cards `#FDFAF4` (slightly lighter); ink `#0B2560` (primary actions, links, logo, selected borders, focus ring); headings `#07194A`; body text and labels `#1E2B4A`; supporting text `#4A5B78`; control edges `#76829A`; hover/selected tint `#EEEDEB`; apricot `#FCBC88` (companion and restrained decoration only), apricot tint `#FDE8D3` (quiet chips behind ink text), deeper apricot `#E58A45` (companion details and a few contour lines only). The values were sampled from the approved reference image (which is compressed, so they are approximations) and then adjusted where the sampled link blue was too bright and the sampled greys were too weak for AA. Apricot is never used for text.
-- **Measured contrast (WCAG 2.x), computed from the tokens and asserted by `src/test/contrast.test.ts`:**
+| Token | Hex | Use |
+|---|---|---|
+| `--night` | `#0E1830` | page background |
+| `--panel` | `#172340` | panels, dialogs, the reading area |
+| `--raised` | `#1F2C4D` | choice cards, options, the player, menus |
+| `--selected` | `#2A3860` | hover and selected surfaces, progress tracks |
+| `--soft` | `#243258` | secondary buttons |
+| `--cream` | `#F4EADB` | text and headings |
+| `--cream-2` | `#C2B8AA` | supporting text |
+| `--cream-3` | `#9A93A0` | placeholders and the quietest text |
+| `--amber` | `#E5AE6E` | the accent: primary buttons, selection rings, links, focus |
+| `--amber-ink` | `#1B1309` | text on amber and rose buttons |
+| `--lilac` | `#A9A6E8` | recording only |
+| `--rose` | `#E2919A` | delete only |
+| `--line` | `#8D93AE` | input and control edges |
+| `--paper` / `--paper-ink` | `#FBF8F1` / `#1B2116` | the sample passage |
+| `--apricot` / `--apricot-deep` | `#FCBC88` / `#E58A45` | Buddy and the logo book |
 
-  | Pair | Page | Card | Tint | Notes |
-  |---|---|---|---|---|
-  | Body text `#1E2B4A` | 12.5 | 13.4 | 12.0 | also 14.0 on white fields, 11.8 on apricot chips |
-  | Headings `#07194A` | 15.1 | 16.2 | 14.4 | |
-  | Supporting text `#4A5B78` | 6.1 | 6.6 | 5.9 | 5.4 on the muted track fill |
-  | Ink (links, quiet buttons) `#0B2560` | 13.0 | 13.9 | 12.4 | ivory text on the ink button: 13.9 |
-  | Error text `#A11D2B` | 6.9 | 7.4 | 6.6 | |
-  | Control edges `#76829A` (need 3:1) | 3.5 | 3.7 | 3.3 | 3.9 on white fields |
-  | Focus ring, selected borders, check marks (ink) | 13.0 | 13.9 | 12.4 | |
-  | Apricot `#FCBC88` | 1.5 | 1.6 | 1.4 | decorative only, deliberately below 3:1 |
+Each colour has one meaning. Amber is never decoration, lilac only means recording, rose only means delete.
 
-  Hover and selected states use the tint with the same text and ink edges (rows above). Disabled controls are exempt and drawn at 45% opacity.
-- **Type:** Atkinson Hyperlegible Next (self-hosted from the `@fontsource-variable/atkinson-hyperlegible-next` package) for the interface; it replaced Manrope. Previously: Manrope for the interface (labels, buttons, helper text, controls). A soft serif, Fraunces (upright 600 for headings, italic 500 for the short italic phrase), for the welcome, review and sample-feedback headings. Only those two Fraunces instances are requested (about 41 KB for the Latin subset, down from about 118 KB for the previous full-axis request), with metric-matched Georgia fallbacks (`size-adjust` 87% / 92.7%, measured) so the swap doesn't move the layout. The RB monogram stays DM Serif Display, now self-hosted from `@fontsource/dm-serif-display`.
-- **Surfaces:** a subtle paper grain and a few faint flowing contour lines painted behind everything (`PaperBackground`, one inline SVG plus a CSS noise tile; decorative, `aria-hidden`). The contours sit in the outer margins and fade out before the centre column, so they are never under reading text or controls. Cards have 26px corners, inner tiles 16px, thin borders, no heavy shadows or nested cards. "Continue to reading" is the only fully pill-shaped control.
-- **The bookmark companion** (`src/components/reading/Companion.tsx`): a small apricot ribbon bookmark with a folded corner, a V-shaped lower edge, a tiny face, arms and feet. **I did not have the original character asset, only the written description and the reference mock-ups, so this is a new drawing made for the app from that description — it is not a copy of an existing file.** One SVG, four poses, no external file to download: *wave* beside the target card (waves twice on arrival, never a loop, still for reduced-motion users); *peek* over the corner of the content card; *listen* quietly in the recording controls (inline and tiny in the phone dock, so the dock is no taller); *celebrate* beside the review heading. It never covers text, controls or uploaded pages (checked with a bounding-box overlap script), has no speech bubbles, and the drawing itself is `aria-hidden` and unfocusable.
-  - **Interaction (restrained, one-shot).** Where it is safe — the welcome and resume screens, the content card and the review screen — the companion is wrapped in a real `<button>` named "Say hello to your buddy" (no visible border or label; the app's normal focus ring shows for keyboard users; the tap target is the drawing plus 8 px all round). A mouse hovering over it gives one brief wave; a click, tap, Enter or Space gives one brief wiggle. Only one reaction runs at a time and further input while it runs is dropped, so nothing queues. Reactions are CSS transforms only, so there is no layout shift, no sound and no continuous motion, and nothing moves over content. Touch devices do not wave on touch-start (only a mouse hover does), the button uses `touch-action: manipulation` and reacts on `click` only, so scrolling past it does nothing. Everything is skipped under `prefers-reduced-motion: reduce` (the arrival wave and the reactions alike). The companion is **not** a button, and stays still, while reading or recording (the controls screen) and while recorded audio is playing on the review screen.
-- **Children’s corner (extension, same language).** Same tokens, Fraunces headings, Atkinson Hyperlegible Next interface and companion. Full pills are kept for the primary actions (*Read this story*, *Choose another story*, *Continue to reading*); the segmented story/own control, filters and covers use the ordinary rounded shapes. The doorway is a small inline vector drawing (`DoorwayArt.tsx`) beside a quiet text “Step inside →”; the painterly high-resolution original is an outstanding asset. Modals (story preview, reflection responses) reuse the one dialog with a visible “Close” control; the reflection modal uses a restrained apricot-tint circle for its emoji, with no scores. Story pages are stacked in one grid cell so nothing moves between pages.
-- **Layout:** welcome heading left-aligned on phones and centred on desktop; functional content left-aligned inside cards; about 16px between cards on phones, 24px on desktop. The target tiles are modest (numeral over "min"; Custom with an arrow).
-- **Header:** compact, sticky and opaque. The serif RB monogram and small book illustration form the home button; on the welcome screens a compact outlined **Install app** control sits beside **Exit session** (when a session exists); in a sample session, "Sample session" and "Exit sample". No navigation menu. On very narrow phones the buttons tighten and (below 360 px) drop their icons so the row never overflows.
-- **Footer:** "Your content stays in this tab. Nothing is uploaded." (this app, once installed) sits at the bottom of the viewport on short pages and follows the content on long ones. While a session exists, "Reloading or closing this tab clears your session." is added. The reserved space for the fixed Continue bar or recording dock sits below the footer, so the footer is never hidden behind either.
-- **Motion:** newly revealed sections fade in gently; this, the recording pulse, the companion's wave and smooth gallery scrolling are switched off for people who prefer reduced motion.
+**Contrast (WCAG 2.x), asserted by the tests:** cream text is 9.6:1 or more on every surface and supporting text 5.9:1 or more; placeholders are 4.6:1 or more on the panel and raised surfaces; amber and rose text are 5.7:1 or more on the panel and raised surfaces; dark ink on amber is 9.3:1 and on rose 7.7:1; control edges are 3.8:1 or more on every surface; amber selection rings and the lilac recording dot are well above 3:1.
+
+### Cushion and beanbag colours
+Ginkgo `#D7E259`, Marigold `#EFA94A`, Clay `#C8664B`, Blossom `#E3A69A`, Plum `#9A6A9C`, Lilac `#A9A6E8`, Sky `#5AA6E9`, Cream `#EEE2CA`. Each swatch has its name beneath it. In the nook the cushion has a soft shadow and a light rim, and the beanbag a darker outline, so every colour stands out from the chair.
+
+## Type
+- **Atkinson Hyperlegible Next** for the interface (self-hosted from `@fontsource-variable/atkinson-hyperlegible-next`).
+- **Andika** for the children’s corner and story text, a face designed for early readers (self-hosted from `@fontsource/andika`, 400 and 700).
+- **DM Serif Display** for the RB monogram only (self-hosted from `@fontsource/dm-serif-display`).
+- Scale: 14 / 16 / 18 / 22 / 28 px (24 px titles on phones). Two weights in the interface, 400 and 600. Reading text starts at 22 px with a 1.65 line height and a 34em measure, and A− / A+ step it from 18 to 32 px.
+- Tabular figures for timers and counts.
+
+## Space, size and shape
+- One 4 px spacing scale (4, 8, 12, 16, 24, 32, 48).
+- Buttons are 48 px tall; the main action is 56 px. Icon buttons and touch targets are at least 44 px.
+- Radii: 10 to 12 px for controls, 14 to 16 px for cards and choices, 20 px for panels and dialogs.
+- Fixed-size controls that wrap: minute options are 88 × 64 px (70 px wide on the smallest phones), swatches 56 px, page thumbnails 84 × 108 px. Nothing stretches to fill a row; full width is kept for the main action.
+- Containers have fixed frames and their content scrolls, so adding content never pushes the layout around.
+
+## Components
+- **Choice:** a whole-row card with a title, one line of description and a chevron. The three on home are identical.
+- **Option** (minutes), **swatch** (colours), **chip** (story filters) and **segmented control** (Paste text / Photos of pages; Pick a story / Bring your own; Story / About this book).
+- **Primary** (amber), **secondary** (soft navy), **danger** (rose, in the one dialog that needs it), **link** (amber text) and **quiet** (Back) buttons.
+- **Summary list:** label, value and **Change** on each row.
+- **Dialogs** are a centred card on wide screens and a bottom sheet with a grab handle on narrow ones. Confirmations name the action, state the consequence in one sentence, repeat the verb on the button and give Cancel the focus. There are no warning boxes.
+- **Messages** (toasts): one at a time, with Undo where an action can be undone.
+- **⋯ More** menus hold everything that isn’t a screen’s main action.
+
+## The nook
+`src/components/nook/Nook.tsx`: one inline SVG of a night-time reading room. It has an arched window onto ginkgo leaves, string lights, a wall clock, an arc floor lamp, an armchair, a side table with Buddy and a mug, a shelf, and a children’s corner with a lantern, a beanbag and a basket of picture books. Pieces that aren’t set yet are drawn as a soft, desaturated sketch and come into focus as they are chosen. The clock shows the minutes; the reading (pages, text or the sample card) appears on the chair; the cushion and beanbag take their colours; recordings add spines to the shelf. The lamp and the lantern are the last things to light, warming toward the chair or the beanbag. The corner you are not using dims. The drawing has a text description for screen readers that changes with what is set.
+
+## Buddy
+`src/components/reading/Companion.tsx`: a small apricot bookmark with a folded corner, a tiny face, and apricot arms, hands and feet outlined in a deeper apricot so they stand out against the night. Four poses: wave (home), listen (the recording card), celebrate (listen back) and peek. Buddy waves twice when home opens and answers a mouse hover with a wave and a tap with a wiggle, one reaction at a time. Buddy is still while recording, and the drawing is hidden from assistive technology.
+
+## Motion
+- Under 300 ms for interface motion, on a strong ease-out (`cubic-bezier(0.23, 1, 0.32, 1)`). No ease-in, no bounce.
+- Buttons press to 97%. Dialogs scale in from 96% in 250 ms. Bottom sheets slide up in 500 ms on a drawer curve (`cubic-bezier(0.32, 0.72, 0, 1)`).
+- Content that swaps in place (story pages, the views in the story window, sample steps) sits in one grid cell and crossfades in 200 ms, so nothing resizes.
+- The lamp warms up over about a second after setup; colours in the nook ease over 1.4 s.
+- With reduced motion, movement and scaling become short fades, Buddy stays still, and the recording dot stops pulsing.
+
+## Layout
+- **Wide (900 px and up):** header, then the nook and the panel side by side at full height (panel 440 px, or 560 px for stories, the sample and Saved). Reading: the reading area and the recording card side by side.
+- **Narrow:** the header stays at the top, the nook sits above the panel, and the panel’s main button stays in view at the bottom. Reading: the toolbar stays under the header and the recording dock stays at the bottom.

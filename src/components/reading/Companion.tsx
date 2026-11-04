@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 
 export type CompanionPose = "wave" | "peek" | "listen" | "celebrate";
 
@@ -17,9 +17,12 @@ type Props = ArtProps & {
   interactive?: boolean;
 };
 
-const INK = "var(--ink)";
-const APRICOT = "var(--apricot)";
-const DEEP = "var(--apricot-deep)";
+// Fixed colours: Buddy looks the same on every surface. Arms, hands and feet are apricot with a deeper apricot outline,
+// so they stand out against the night background.
+const INK = "#0B2560";
+const APRICOT = "#FCBC88";
+const DEEP = "#E58A45";
+const TINT = "#FDE8D3";
 
 /**
  * The bookmark companion: a small apricot ribbon with a folded top corner, a V-shaped lower edge, a tiny face, arms and feet.
@@ -36,6 +39,7 @@ function CompanionArt({ pose, className = "", animate = false }: ArtProps) {
     strokeLinecap: "round",
     strokeLinejoin: "round",
   } as const;
+  const limb = { fill: "none", stroke: APRICOT, strokeWidth: 4.2, strokeLinecap: "round" } as const;
 
   return (
     <svg
@@ -56,25 +60,25 @@ function CompanionArt({ pose, className = "", animate = false }: ArtProps) {
       {/* arms (drawn first so the body overlaps their roots) */}
       {pose === "wave" && (
         <>
-          <path d="M28 62 L18 74" {...stroke} />
+          <path d="M28 62 L18 74" {...limb} />
           <g className={`companion-wave${animate ? " companion-wave--animate" : ""}`}>
-            <path d="M72 58 L86 42" {...stroke} />
-            <circle cx="87" cy="40" r="3.4" fill={APRICOT} stroke={INK} strokeWidth="2" />
+            <path d="M72 58 L86 42" {...limb} />
+            <circle cx="87" cy="40" r="3.4" fill={APRICOT} stroke={DEEP} strokeWidth="2" />
           </g>
         </>
       )}
       {pose === "celebrate" && (
         <>
-          <path d="M28 58 L14 38" {...stroke} />
-          <path d="M72 58 L86 38" {...stroke} />
-          <circle cx="13" cy="36" r="3.4" fill={APRICOT} stroke={INK} strokeWidth="2" />
-          <circle cx="87" cy="36" r="3.4" fill={APRICOT} stroke={INK} strokeWidth="2" />
+          <path d="M28 58 L14 38" {...limb} />
+          <path d="M72 58 L86 38" {...limb} />
+          <circle cx="13" cy="36" r="3.4" fill={APRICOT} stroke={DEEP} strokeWidth="2" />
+          <circle cx="87" cy="36" r="3.4" fill={APRICOT} stroke={DEEP} strokeWidth="2" />
         </>
       )}
       {pose === "listen" && (
         <>
-          <path d="M28 62 L36 78" {...stroke} />
-          <path d="M72 62 L64 78" {...stroke} />
+          <path d="M28 62 L36 78" {...limb} />
+          <path d="M72 62 L64 78" {...limb} />
         </>
       )}
 
@@ -90,7 +94,7 @@ function CompanionArt({ pose, className = "", animate = false }: ArtProps) {
         {/* folded corner */}
         <path
           d="M60 6 V14 Q60 18 64 18 H72 Z"
-          fill="var(--apricot-tint)"
+          fill={TINT}
           stroke={INK}
           strokeWidth="2"
           strokeLinejoin="round"
@@ -127,14 +131,14 @@ function CompanionArt({ pose, className = "", animate = false }: ArtProps) {
       {pose === "peek" ? (
         // hands holding the edge of the card the ribbon is peeking over
         <>
-          <circle cx="30" cy="60" r="4.4" fill={APRICOT} stroke={INK} strokeWidth="2.2" />
-          <circle cx="70" cy="60" r="4.4" fill={APRICOT} stroke={INK} strokeWidth="2.2" />
+          <circle cx="30" cy="60" r="4.4" fill={APRICOT} stroke={DEEP} strokeWidth="2.2" />
+          <circle cx="70" cy="60" r="4.4" fill={APRICOT} stroke={DEEP} strokeWidth="2.2" />
         </>
       ) : (
         // feet
         <>
-          <ellipse cx="35" cy="106" rx="7" ry="4" fill={APRICOT} stroke={INK} strokeWidth="2.2" />
-          <ellipse cx="65" cy="106" rx="7" ry="4" fill={APRICOT} stroke={INK} strokeWidth="2.2" />
+          <ellipse cx="35" cy="106" rx="7" ry="4" fill={APRICOT} stroke={DEEP} strokeWidth="2.2" />
+          <ellipse cx="65" cy="106" rx="7" ry="4" fill={APRICOT} stroke={DEEP} strokeWidth="2.2" />
         </>
       )}
     </svg>
@@ -220,31 +224,5 @@ export function Companion({ interactive = false, ...art }: Props) {
         className="pointer-events-none block h-auto w-full"
       />
     </button>
-  );
-}
-
-/**
- * Seats a companion beside a card without covering anything: on narrow screens it stands on the card's top-right edge (the
- * extra top margin keeps it clear of the heading above); on wide screens it sits in the side margin next to the card.
- */
-export function CompanionPerch({
-  pose,
-  animate,
-  children,
-}: {
-  pose: CompanionPose;
-  animate?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="relative mt-12 lg:mt-0">
-      <Companion
-        pose={pose}
-        interactive
-        {...(animate ? { animate } : {})}
-        className="absolute right-6 bottom-[calc(100%-4px)] w-12 sm:w-14 lg:top-10 lg:-right-[5.5rem] lg:bottom-auto lg:w-16"
-      />
-      {children}
-    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type AudioTake = { url: string; duration: number; source: "recording" | "upload"; name?: string };
+export type AudioTake = { url: string; duration: number; source: "recording" | "upload"; name?: string | undefined };
 export type RecState = "idle" | "starting" | "recording" | "paused" | "finishing";
 
 export function formatTime(s: number) {
@@ -96,6 +96,8 @@ export function useRecorder(onComplete: () => void) {
   const [problem, setProblem] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0); // recorded seconds only — paused time never counts
   const [take, setTake] = useState<AudioTake | null>(null);
+  const takeRef = useRef<AudioTake | null>(null);
+  takeRef.current = take;
 
   const completeRef = useRef(onComplete);
   completeRef.current = onComplete;
@@ -353,6 +355,21 @@ export function useRecorder(onComplete: () => void) {
     setElapsed(0);
   }, []);
 
+  /** Put back a recording kept on the device (or one set aside for Undo). Replaces the current one. */
+  const restore = useCallback((next: AudioTake | null) => {
+    replaceTake(next);
+    setElapsed(0);
+  }, []);
+
+  /** Take the current recording out without releasing its audio, so Undo can put it back. */
+  const detach = useCallback((): AudioTake | null => {
+    const out = takeRef.current;
+    takeRef.current = null;
+    setTake(null);
+    setElapsed(0);
+    return out;
+  }, []);
+
   /** Discard everything: drop any unfinished recording, release the mic, ignore late callbacks. */
   const discard = useCallback(() => {
     generation.current += 1;
@@ -388,5 +405,7 @@ export function useRecorder(onComplete: () => void) {
     upload,
     clear,
     discard,
+    restore,
+    detach,
   };
 }

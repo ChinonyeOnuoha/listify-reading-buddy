@@ -113,7 +113,7 @@ describe("StoryReader failure handling", () => {
     expect(sizes).toEqual([1]);
     rerender(<StoryReader story={story} textSize={1} onTextSize={(n) => sizes.push(n)} />);
     await waitFor(() =>
-      expect(screen.getByRole("status", { hidden: true }).textContent).toBe("Text size 2 of 5"),
+      expect(screen.getByRole("status", { hidden: true }).textContent).toBe("Text size 2 of 6"),
     );
   });
 });
@@ -128,7 +128,7 @@ describe("real story modules", () => {
 });
 
 describe("page controls", () => {
-  it("sit above the reading area, pinned under the header, so they never move between story pages and notes", async () => {
+  it("sit above the reading area, so they never move between story pages and notes", async () => {
     load.mockResolvedValue({
       pages: [
         {
@@ -147,9 +147,6 @@ describe("page controls", () => {
     const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
     await screen.findByText("Short story page.");
     const nav = screen.getByRole("navigation", { name: "Pages" });
-    expect(nav.className).toMatch(/\bsticky\b/);
-    expect(nav.className).toMatch(/top-16/); // below the 64 px site header
-    expect(nav.className).toContain("bg-card"); // opaque: text scrolling beneath stays legible
     const area = container.querySelector(".scroll-mt-20")!;
     expect(nav.compareDocumentPosition(area) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const next = screen.getByRole("button", { name: "Next page" });
@@ -331,23 +328,21 @@ describe("steady page turns", () => {
     const { container } = render(<StoryReader story={story} textSize={1} onTextSize={() => {}} />);
     await screen.findByText("One short line.");
     const area = container.querySelector(".scroll-mt-20")! as HTMLElement;
-    // the page controls are pinned under the 64 px header; their bottom edge is the top of the readable view
-    const nav = screen.getByRole("navigation", { name: "Pages" });
-    nav.getBoundingClientRect = () => ({ bottom: 112 }) as DOMRect;
-    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const scroll = vi.fn();
+    area.scrollIntoView = scroll;
     const at = (top: number) => {
       area.getBoundingClientRect = () => ({ top }) as DOMRect;
     };
 
-    at(150); // already comfortably in view
+    at(150); // already in view
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(screen.getByText("Page 2 of 3")).toBeTruthy());
-    expect(scrollBy).not.toHaveBeenCalled(); // no needless scroll
+    expect(scroll).not.toHaveBeenCalled(); // no needless scroll
 
-    at(-400); // the reader had scrolled down: the new page's start is above the screen
+    at(-400); // the reader had scrolled down: the new page's start is above the view
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(scrollBy).toHaveBeenCalledTimes(1));
-    expect(scrollBy.mock.calls[0]![0]).toMatchObject({ top: -400 - 112 - 12, behavior: "auto" }); // lands just under the page controls, instantly
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+    expect(scroll.mock.calls[0]![0]).toMatchObject({ block: "start" });
   });
 
   it("opening and closing About this story changes nothing about the page or the scroll position", async () => {

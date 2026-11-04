@@ -18,3 +18,6 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+// jsdom has no layout: scrolling an element into view is a no-op here.
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};

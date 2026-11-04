@@ -1,27 +1,27 @@
 # Reading Buddy
 
-**Reading Buddy is a conceptual portfolio project: a reading-practice prototype.** You choose how long you want to read, bring a passage, record yourself reading it aloud, and listen back. A small bookmark companion keeps you company. It explores what gentle, AI-assisted reading practice could feel like — but the AI parts are **not connected yet**.
+**Reading Buddy is a conceptual portfolio project: a reading-practice prototype.** You build a quiet night-time reading nook — how long you’ll read, what you’re reading, a cushion — and the lamp comes on. Then you read aloud, record yourself and listen back. Buddy, a small bookmark, keeps you company. It explores what gentle, AI-assisted reading practice could feel like — but the AI parts are **not connected yet**.
 
 It began as *Listify: Reading Buddy*, a separate project inspired by my earlier [Listify to-do app](https://listify-a-to-do-app.vercel.app/) ([repository](https://github.com/ChinonyeOnuoha/Listify--A-To-do-App)), which this repository does not change.
 
 ## What works today
-- **Guided session:** set a reading target (5, 10, 15 minutes or your own), then paste text or upload photos or screenshots of pages. Each step appears only when it is needed.
-- **Pages:** upload several pages, reorder, replace or remove them from a per-page menu, and read them one at a time. While reading, **zoom and pan each page on its own** (buttons, pinch, drag, keyboard) without enlarging the recording controls.
-- **Recording:** record with the microphone, **pause and resume** (paused time doesn't count), **listen so far** while paused, finish, or upload an audio file instead. Time against your target is tracked, and reaching the target never cuts you off.
-- **Playback:** listen back on the review screen; re-record or start a new session (each asks first).
-- **Sessions:** the logo returns home and **Resume session** brings you back; **Exit session** is the only way to discard everything.
-- **A sample session** to look around without a microphone, with clearly labelled, made-up sample feedback.
-- **A children’s reading corner**, entered through a quiet “doorway” on the welcome screen: pick one of eight openly licensed illustrated stories (from African Storybook, Book Dash and StoryWeaver) (or bring your own), read aloud with the same recorder, then listen back — with no timed target, scores or claims. It keeps its own separate session. See [docs/children-corner.md](docs/children-corner.md).
+- **A nook that builds itself.** Each choice appears in an illustrated reading room beside the panel: the clock shows your minutes, your reading lands on the chair, the cushion takes its colour, and the lamp warms toward the chair last. The nook is remembered, so a returning visit says “Welcome back” and skips what’s already set.
+- **Three short steps, one action at a time.** Reading time (5, 10, 15 or any whole number from 1 to 180), what you’re reading, and one of eight cushion colours. A summary then lets you **Change** any one thing and come straight back, without repeating setup.
+- **Paste text or photograph pages.** Pages sit in a sideways strip of small thumbnails that never pushes the layout around. Tap a page and move it **Earlier** or **Later** (or drag it), replace or remove it, and **add the words on a page** so screen readers can read them and they can be enlarged while reading.
+- **Reading and recording.** A calm reading screen with resizable text or zoomable pages and nothing that moves on its own. Record with the microphone, **pause and resume** (paused time doesn’t count), listen to what you’ve recorded while paused, finish, or upload a recording. Reaching your time never cuts you off.
+- **Listen back** with a simple player. Record again, start a new session or delete the recording; deletes offer **Undo**.
+- **A children’s corner** for readers of about 8 to 12: a grown-up can set an optional, gentle reading time, the child picks a beanbag and one of eight openly licensed picture stories (from African Storybook, Book Dash and StoryWeaver) or brings their own, a lantern lights the corner, and after reading “How was reading?” offers 😊 Easy, 🙂 A bit hard or 🤔 Not sure, with no scores or claims. It keeps its own content and recordings. See [docs/children-corner.md](docs/children-corner.md).
+- **A three-step sample** to look around without a microphone, with clearly labelled, made-up sample notes shown one at a time.
+- **Saved on this device:** see what’s kept and how much room it takes, delete one thing (with Undo) or everything, or forget the nook.
+- **Optional sound:** soft cues for the lamp, the cushion and turning pages, off until you switch it on and silent while recording.
 - **Installable and offline-capable** as a web app in supported browsers.
 
 ## What is not connected yet
 - **No live AI feedback.** Nothing analyses your recording. The "sample feedback" screens are invented examples, labelled as illustrative.
 - **No automatic text extraction** from page photos: uploaded pages are shown as images for you to read from.
 
-## Privacy and your session
-Your passage, page photos and recordings (including those in the children’s corner) stay in this browser tab (or the installed app window). They are kept in memory only, are **not uploaded**, and nothing is sent for AI processing. **Closing or reloading the tab clears the session** — nothing is saved between visits.
-
-Loading the page does contact Google Fonts for its typefaces (one stylesheet and four font files), so Google sees ordinary request details such as your IP address. Details, and what was and wasn't checked, are in [docs/architecture.md](docs/architecture.md#privacy-and-network-behaviour).
+## Privacy and your device
+Your passage, page photos, recordings and the nook’s choices are **kept on this device**, in this browser, so they’re there next time. They are **not uploaded**, and nothing is sent for AI processing. Anyone using the same browser can open them; **Saved on this device** (in the header) lists and deletes them. All fonts are part of the app, so loading it contacts no third party. Details are in [docs/architecture.md](docs/architecture.md#kept-on-this-device).
 
 ## Try it locally
 ```bash
@@ -36,7 +36,7 @@ A development-only experiment checks whether free on-device speech recognition c
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it
 - [Children’s reading corner](docs/children-corner.md) and its [story manifest and licence review](docs/children-corner-content.md)
-- [Design system](docs/design-system.md) — palette, type, surfaces, the bookmark companion and its interaction
+- [Design system](docs/design-system.md) — the night-garden palette, type, components, the nook, Buddy and motion
 - [Architecture](docs/architecture.md) — structure, how recording and the offline app work, privacy and network behaviour
 - [Accessibility notes](docs/accessibility.md) — what is built in and what is not yet verified
 - [AI feasibility summary](docs/ai-feasibility.md), [AI feedback plan](docs/ai-feedback-plan.md), [cloud transcription experiment](docs/ai-feedback-experiment.md) and [lab README](lab/README.md)

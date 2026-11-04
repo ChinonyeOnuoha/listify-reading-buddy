@@ -1,45 +1,77 @@
 # User flow and behaviour
 
-The children’s reading corner (entered from the welcome screen’s “A doorway to stories”) has its own flow and its own session; it is described in [children-corner.md](children-corner.md). This page describes the main flow.
+What each screen does and the rules behind it. For the design language see [design-system.md](design-system.md), for how it is built see [architecture.md](architecture.md), and for accessibility see [accessibility.md](accessibility.md). The children’s corner is described in more detail in [children-corner.md](children-corner.md).
 
-What each screen does and the rules behind it. This describes the app as it is now; it is a reference, not a change history. For the design language see [design-system.md](design-system.md), for how it is built see [architecture.md](architecture.md), and for accessibility decisions see [accessibility.md](accessibility.md).
+## The shape of the app
+Every screen except reading has the same two parts: the **nook**, an illustrated reading room, and a **panel** beside it. Each choice in the panel changes something in the nook (the clock shows the minutes, the reading appears on the chair, the cushion takes its colour), and the lamp comes on last, warming toward the chair. On wide screens (900 px and up) the nook and the panel sit side by side at full height: only the panel’s content scrolls, and its main button stays pinned at the bottom. On narrower screens the nook sits above the panel and the page scrolls, with the main button kept in view at the bottom of the panel.
 
-## How a session works
-There's no stepper — each part appears when it's needed (progressive disclosure), and contextual buttons move you on.
+Each screen has **one main action** and at most one quieter alternative. Anything else is in a **⋯ More** menu.
 
-1. **Welcome.** A fresh visit shows only the logo, "What shall we read aloud together today?" (in a soft serif with “together” in italic; left-aligned on phones, centred on desktop), the reading-target card and a sample-session link.
-2. **Today's reading target.** Choose 5, 10 or 15 min, or Custom. Nothing is preselected. Custom shows a labelled minutes field and a small "Set target" button; the next card only appears once a whole number from 1–180 is confirmed. Once set, the target becomes a plain "Today's target" row (no card of its own) with a directly editable minutes field; changing it keeps everything else.
-3. **Bring something to read.** Two tiles: "Paste text" (labelled text area) or "Upload pages" (photos or screenshots of pages). Neither input appears until you choose. Switching keeps both drafts.
-   - Pages show in one horizontal strip of equal, fixed-height frames: two on desktop, one plus a peek of the next on phones. Images are contained, never stretched or cropped. Each page has a "⋯" menu (Move earlier, Move later, Replace…, Remove) that works with keyboard and screen readers; there is no drag-only reordering. Round gallery arrows only scroll: the right arrow shows until the end, the left arrow shows only at the end, and neither shows when everything fits. Touch, trackpad and keyboard scrolling always work.
-   - Images that can't be opened (e.g. some HEIC photos) are rejected with a message, so a page in the strip is always a usable page.
-   - **Content-ready layout.** Once a page has loaded, or pasted text is "done" (right after a paste, or when you leave the text box — never on the first typed character), the content comes into focus: the welcome heading goes, the Paste/Upload tiles collapse, and "Your pages" (with the page count beside it) or "Your content" sits directly under the card header with a small underlined **Change content** link. The text box is the same element throughout, so focus, cursor and typing are never interrupted.
-   - **Change content** reopens the tiles with a **Cancel** link back to your current content. Both drafts are kept. Picking a method that already has content, adding pages, or finishing a paste switches straight back. Removing all pages or all text returns that method to its empty state.
-   - After the first upload the previews scroll into view; adding more pages scrolls the strip to the first new one (instantly if you prefer reduced motion).
-   - **Continue bar.** While usable content exists (non-whitespace text or at least one loaded page), a quiet, opaque bar (the page's own background colour) is fixed to the bottom on every screen size, holding only the "Continue to reading →" button — the one fully pill-shaped control. Full-width on phones (with the iPhone safe area respected), right-aligned on desktop. The page reserves the bar's measured height plus 24px, so it never covers previews, editing controls or helper text. While an on-screen keyboard is open over a text field, the button moves into the page right under the content card (so it never sits on the field and stays a short scroll away), and returns to the bar when the keyboard closes. It hides when there's no usable content.
-4. **Read.** The passage (or pages) comes first. On desktop a compact recording card sits beside it; on phones and tablets the controls live in a compact, opaque **dock anchored to the bottom of the screen**, so they stay in view while you scroll. The page reserves the dock's measured height at its very bottom, so the last lines, page controls and footer are never covered (re-measured on rotation and size changes; iPhone safe area respected). On short or landscape screens the dock collapses to a single row and the header slims to 48px.
-   - The dock shows the state, recorded time against the target, and only the actions that apply: **Start recording / Upload audio** → **Pause / Finish recording** → paused: **Resume recording / Listen so far / Finish recording**. With a recording already made: **Listen back / Record again / Upload audio** (replacing asks first).
-   - **Pause really pauses**: no audio is captured and the timer and target progress stop (they count recorded time only). **Listen so far** plays everything recorded up to now; it's stopped before capture resumes. **Resume** adds to the same recording. **Finish recording** works from recording or paused and opens Review; the microphone is released.
-   - If something fails — the preview can't play, resuming fails, or finishing fails — the captured audio is kept and a short message says what to do next (e.g. "try Finish recording again").
-   - Editing is locked while a recording is unfinished, but page navigation still works. Page navigation shows "Page 1 of 2" on one line, with 44px arrow buttons (named "Previous page" / "Next page") on narrow screens.
-   - **Zooming an uploaded page.** Each page has its own zoom and pan, so you can enlarge a screenshot without enlarging the app: compact **Zoom out**, **Zoom in** and **Fit page** buttons (with the zoom level) sit above the page. Pinch with two fingers, drag to move around once zoomed (touch or mouse), double-click to zoom in and out, or hold Ctrl/⌘ and use the wheel or a trackpad pinch. With the page focused, **+** and **−** zoom, **0** fits and the **arrow keys** move around the zoomed page. Zoom runs from fit (100%) to 600% of the fitted size, the whole image can always be reached, and the image keeps its proportions and original resolution (it is scaled, not cropped or re-encoded). Every page starts fitted, and each page remembers nothing from the previous one. Only the image is transformed: the recording controls, header and page navigation never change size or move, the viewer cannot widen the page, and zooming, panning, fitting or changing pages never touches the recording, its timer or the session. Gestures are only handled inside the viewer: page scrolling elsewhere is unchanged (and a one-finger swipe over a fitted page still scrolls the page), and the browser's own zoom is not disabled. Rotating the device keeps the same part of the page in view. The preparation gallery is separate and unchanged.
-   - Reaching the target never stops recording. If the microphone is unavailable, a friendly message appears and upload becomes the main action.
-5. **Review.** "Reading done 🙌🏾 Have a listen back." / "AI feedback isn't connected yet." (left-aligned on phones, centred on desktop). Playback and duration, "Discard recording" and "Start a new session" (both confirm first; a new session keeps your target). "Back to reading" keeps everything.
-6. **Sample feedback** opens on its own screen from "Explore sample feedback", with "Back to recording" at the top. The browser's Back button works too. Review keeps the recording, passage, target and playback position (paused, never autoplayed), and focus moves to each screen's heading.
+The header holds the RB logo (home), the name of the corner you are in, **Sound** and **Saved on this device**.
 
-## Home, Resume and Exit session
-Everything lives in this tab's memory only — closing or reloading the tab clears it; nothing is stored or uploaded.
-- **Logo = home.** The RB logo returns to the welcome screen without clearing anything. If a session exists, the welcome shows "Your session is waiting" (target, content and recording at a glance) with **Resume session**, which returns you to exactly where you were. Going home pauses any playback.
-- **Going home with an unfinished recording** (recording or paused) asks first: "Return home?" explains that going home will finish the recording and keep it ("Keep recording" — or "Stay here" when paused — / "Finish and go home"). Cancelling leaves it exactly as it was. Confirming finishes and keeps it and releases the microphone; Resume then opens it in Review — it never restarts recording. If nothing could be kept, a second dialog explains that before you leave.
-- **Exit session** (understated, in the header whenever a personal session exists) is the only way to discard the whole session. It opens an accessible confirmation ("Leave this session?" — "Stay in session" / "Leave and discard"; it also mentions an active recording). Opening or cancelling changes nothing. Confirming stops any recording and playback, releases the microphone, clears the target, both drafts, pages, audio and progress, and returns to a fresh welcome. Uploads still decoding and microphone requests still pending at that moment are ignored, so nothing discarded can come back.
-- Dialogs use the project's Radix alert dialog: focus starts on the safe action, stays inside, Escape cancels, focus returns to the logo or Exit button, and there's no close icon.
-- The sample session stays separate: its logo and "Exit sample" never discard a personal session (Exit session is hidden while in the sample).
+## Home
+“Who’s reading today?” with three identical, left-aligned choices:
+- **Practise reading aloud**: the main practice. Once set up, its line shows your minutes and cushion.
+- **Children’s corner**: picture stories, or bring your own. Once a story is chosen, “Carry on with …”.
+- **Try a sample**: how it works, no microphone needed.
 
-## Sample session
-"Just exploring? Try a sample session →" (an understated text link under the preparation cards) opens a walkthrough that needs no target, no passage and no microphone: a short original sample passage → sample review → sample feedback, ending with "Start my session" or "Explore the sample again". A "Sample session" label and "Exit sample" stay in the header throughout.
+After something has been set up, home says “Welcome back. Your nook is just as you left it.” The footer says that everything is saved on this device only, and offers **Install app** where the browser supports it.
 
-There's no demo audio file in the project, so the sample review says so plainly instead of showing a player. The sample keeps its own state: it never counts towards your target or touches your passage, pages or recording, and exiting returns you to your setup exactly as you left it.
+## Main practice
+Setup is three steps, shown as “Step n of 3 · name” with a thin segmented bar. Steps already answered on an earlier visit are skipped.
 
-## Sample feedback
-Six clearly labelled SAMPLE examples, one at a time with tabs and Previous/Next: Repetitions, Missing/added/replaced words, Pauses, Pacing changes, No findings, Uncertainty. Each separates the **observation** (with the relevant words beside it) from an **optional experiment for a new passage**. The copy never guesses causes, never treats accents as errors (only which word was read is compared), never promises improvement and never asks for a reread. Status tags keep "Nothing found in the areas checked" visibly different from "Couldn't assess confidently", and frame pauses and pace changes as moments to review, not mistakes. After a real recording, "Explore sample feedback" opens the same examples — they're never presented as analysis of your audio.
+1. **Reading time.** 5, 10 or 15 minutes, or **Other**, which opens a minutes field with − and + buttons (5 minutes each). Any whole number from 1 to 180 works; anything else shows “Enter a whole number from 1 to 180.” and Continue waits. Only recorded time counts, and reaching the time never stops anything. The clock in the nook shows the minutes as you choose.
+2. **What are you reading today?** **Paste text** (selected to begin with) or **Photos of pages**.
+   - Pasted text goes in a plain text box that starts empty, with a hint inside it and, where the browser allows, **Paste from clipboard**.
+   - Photos and screenshots of pages sit in a strip of small, fixed-size thumbnails that scrolls sideways inside the panel, with **Add** at the end and a fade at the edge to show there are more. Adding pages never makes the panel or the nook grow. Each thumbnail shows its page number.
+   - **Reordering:** tap a page to select it (it gets an amber ring), then use the one toolbar below the strip: **Earlier**, **Later** and **⋯** (Add the words on this page, Replace photo, Remove page). Pages can also be dragged. Each move is announced (“Page 1 moved to position 2 of 3.”).
+   - **Add the words on this page** stores the page’s words. Screen readers read them, and they appear as resizable text under the photo while reading. A small green dot on the thumbnail marks pages with words.
+   - Removing a page is immediate, with **Undo**. Files that can’t be opened as images are refused with a message, so every page in the strip is usable.
+3. **Get comfortable.** Choose one of eight cushion colours (Ginkgo, Marigold, Clay, Blossom, Plum, Lilac, Sky, Cream), or **Skip for now**. The cushion appears in the nook as you try each colour.
 
-The sample examples live in `src/lib/sample-feedback.ts`. They are invented, always labelled SAMPLE, and kept apart from the visitor's own recording. They are **not** produced by any analysis, and nothing in the app analyses a recording.
+Then the **lamp comes on**, warming toward the chair, and the panel shows **Your nook is ready**: a short summary (reading time, your reading, cushion) with **Change** beside each, and **Sit down and read**. Change opens only that step, with **Back to your nook** and **Save**; both return to the summary. Setup is never replayed to change one thing.
+
+### Reading
+The reading fills the screen. A toolbar at the top holds **← Nook**, then the tools for what you are reading: **A− / A+** for text, and for photographed pages Previous, “Page n of N” and Next (each photo also has its own zoom and pan). Pages are stacked in one space and swap in place, so the toolbar and the recording controls never move. Text is shown as real, resizable text in a comfortable column, and nothing on the page moves or highlights on its own.
+
+On wide screens the recording controls are a card beside the reading; on narrow screens they are a dock at the bottom. Both show the state, the recorded time against your minutes, a one-line hint and two buttons:
+- **Start recording** · Upload a recording
+- Recording: **Pause** · Finish
+- Paused: **Resume** · Finish, with **Listen to what you’ve recorded**. Paused time doesn’t count.
+- Recorded: **Listen back** · Record again (the new recording replaces the old one when you finish)
+- Microphone unavailable: **Upload a recording instead** · Try the microphone again
+
+The first time you start recording, a short explanation (“Buddy needs to hear you”) comes before the browser’s own microphone question. **← Nook** during a recording asks “Finish recording and go back?”; finishing keeps the recording. The logo and Saved ask the same.
+
+### Listen back
+“Have a listen back” with how long you recorded against your minutes, a player (play, pause and a position slider) and **Record again** as the main action. **⋯** holds See sample notes, Start a new session and Delete recording. **Back to your nook** returns to the summary, which also offers “Listen to your last recording”. Deleting a recording, or starting a new session, is immediate and offers **Undo** for six seconds.
+
+## Children’s corner
+Three steps, then the lantern. Covered in full in [children-corner.md](children-corner.md).
+1. **Set a reading time?** For grown-ups: Off, 5, 10 or 15 minutes, as a gentle guide that never counts down or stops the reader. **Hand over to the reader**.
+2. **Pick your beanbag.** The same eight colours.
+3. **Where shall we go today?** **Pick a story** (eight picture stories with theme filters) or **Bring your own** (paste or photograph pages, exactly as in the main practice, but kept separately).
+
+Then the lantern lights the beanbag, **Your corner is ready** (with Change on each line) and **Open the story**. After reading: **You made time to read**, the player, **How was reading?** (😊 Easy · 🙂 A bit hard · 🤔 Not sure), **Choose another story**, **I’m done for now**, and ⋯ (Record again, Delete recording).
+
+## Sample
+Three steps in one fixed space, with one button to move on:
+1. **This is the reading screen**, with the sample passage. Recording is off.
+2. **Then you listen back.** The sample has no demo audio, and says so.
+3. **Notes Buddy could offer**: the six sample notes one at a time in a card, labelled “Sample · Note n of 6” with dots, each separating what was noticed from an optional idea for a new passage. **Next note**, then **Start my own session**.
+
+The sample notes live in `src/lib/sample-feedback.ts`. They are invented examples on a sample passage, always labelled as samples, and never presented as analysis of anyone’s reading. Nothing in the app analyses a recording.
+
+## Saved on this device
+From the header. Lists what is kept (for each corner: what is being read, the recording’s length and the room it takes), the browser’s estimate of free space, and what the nook remembers.
+- **Delete** (the bin beside an item) is immediate, with **Undo**.
+- **Delete all readings and recordings** asks once: “Everything saved on this device will be removed, from both the main practice and the children’s corner. This can’t be undone.” Cancel is the default.
+- **Forget my nook** asks once, then resets reading times, cushion and beanbag. Saved readings stay until deleted.
+
+The first time something is saved, a message says so and where to delete it.
+
+## Messages
+Short messages appear at the bottom of the screen on wide screens and under the header on narrow ones (where the main buttons are at the bottom). A message with Undo stays for six seconds; others for four.
+
+## Sound
+Off until switched on in the header. Soft, short cues for the lamp and lantern, a cushion settling, pages added and pages turned. Silent while recording or listening back, and never the only sign that something happened.

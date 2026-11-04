@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PageViewer } from "@/components/reading/PageViewer";
-import { PassageView } from "@/components/reading/PassageView";
+import { PagesView } from "@/components/app/Reader";
 
 // jsdom has no layout: give the viewer a 400 × 600 box and let the image report a portrait size.
 beforeAll(() => {
@@ -231,29 +231,28 @@ describe("PageViewer layout safety", () => {
   });
 });
 
-describe("pages in PassageView", () => {
-  const images = [
-    { id: "a", url: "blob:a", name: "a.png" },
-    { id: "b", url: "blob:b", name: "b.png" },
+describe("photographed pages in the reader", () => {
+  const blob = new Blob(["x"], { type: "image/png" });
+  const pages = [
+    { id: "a", url: "blob:a", name: "a.png", blob },
+    { id: "b", url: "blob:b", name: "b.png", blob, words: "The words on page two." },
   ];
-  it("each newly selected page starts fitted, and the counter stays on one line", () => {
-    const { container } = render(<PassageView images={images} />);
+  it("each newly shown page starts fitted", () => {
+    const { container, rerender } = render(<PagesView pages={pages} page={0} size={2} />);
     const first = loaded(container);
     fireEvent.click(within(container).getAllByRole("button", { name: "Zoom in" })[0]!);
     fireEvent.click(within(container).getAllByRole("button", { name: "Zoom in" })[0]!);
     expect(scaleOf(first)).toBeCloseTo(2.25, 5);
-
-    act(() => void fireEvent.click(within(container).getByRole("button", { name: "Next page" })));
+    act(() => void rerender(<PagesView pages={pages} page={1} size={2} />));
     const second = loaded(container);
     expect(scaleOf(second)).toBe(1);
     expect(translateOf(second).x).toBeGreaterThanOrEqual(0); // centred, not inheriting the previous pan
-    const counter = within(container).getByText("Page 2 of 2");
-    expect(counter.className).toContain("whitespace-nowrap");
   });
 
-  it("page navigation sits outside the viewer", () => {
-    const { container } = render(<PassageView images={images} />);
-    const group = within(container).getByRole("group", { name: "Page 1 of 2" });
-    expect(group.contains(within(container).getByRole("button", { name: "Next page" }))).toBe(false);
+  it("shows the words added for a page as real text under its photo", () => {
+    const { container } = render(<PagesView pages={pages} page={1} size={2} />);
+    const words = within(container).getByText("The words on page two.");
+    expect(words.tagName).toBe("P");
+    expect(within(container).getByRole("group", { name: "Page 2 of 2" }).contains(words)).toBe(false);
   });
 });
