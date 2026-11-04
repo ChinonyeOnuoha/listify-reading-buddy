@@ -325,7 +325,8 @@ function Index() {
   const scene = (
     <Nook
       focus={kid ? "child" : corner === "adult" ? "adult" : "home"}
-      minutes={preview.minutes !== undefined && !kid ? preview.minutes : nook.minutes}
+      // Each corner's clock shows its own reading time: the grown-up's choice in the children's corner (or none).
+      minutes={preview.minutes !== undefined ? preview.minutes : kid ? nook.kidMinutes : nook.minutes}
       reading={
         corner === "sample"
           ? "sample"
@@ -450,7 +451,7 @@ function Index() {
         editing={editing}
         step={1}
         onBack={() => (editing ? go("ready") : toHome())}
-        onPreview={(m) => !kid && setPreview({ minutes: m })}
+        onPreview={(m) => setPreview({ minutes: m })}
         onSave={(m) => {
           setNook(kid ? { kidMinutes: m, kidTimeAsked: true } : { minutes: m });
           sound("tick");
@@ -821,7 +822,7 @@ function Index() {
           <>
             <div
               className={`relative shrink-0 overflow-hidden rounded-[20px] bg-[#1C2541] ${
-                corner === "home" ? "h-[clamp(240px,46vw,440px)]" : "h-[clamp(200px,40vw,440px)]"
+                "h-[min(75vw,440px)]"
               } wide:h-auto wide:min-w-0 wide:flex-1`}
             >
               {scene}

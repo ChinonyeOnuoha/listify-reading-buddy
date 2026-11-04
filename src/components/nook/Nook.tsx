@@ -181,12 +181,15 @@ export function Nook(props: NookProps) {
   return (
     <svg
       viewBox="0 0 800 600"
-      preserveAspectRatio="xMidYMid slice"
+      // The whole room always fits (nothing is cropped at any size); the wall and floor carry on past the drawing's
+      // edges, so a frame of any shape shows more room rather than empty bands.
+      preserveAspectRatio="xMidYMid meet"
       width="100%"
       height="100%"
       role="img"
       aria-label={alt}
       className={className}
+      style={{ overflow: "visible" }}
     >
       <defs>
         <filter id={ids.sketch} x="-15%" y="-15%" width="130%" height="130%">
@@ -211,16 +214,17 @@ export function Nook(props: NookProps) {
       </defs>
 
       {/* room */}
-      <rect x="0" y="0" width="800" height="600" fill={c.wall} />
-      <rect x="0" y="336" width="800" height="104" fill={c.wainscot} />
-      <path d="M0 336 H800" stroke={c.rail} strokeWidth="4" />
+      {/* The wall, panelling and floor run well past the 800 × 600 drawing, for frames wider or taller than 4:3. */}
+      <rect x="-1200" y="-900" width="3200" height="1336" fill={c.wall} />
+      <rect x="-1200" y="336" width="3200" height="104" fill={c.wainscot} />
+      <path d="M-1200 336 H2000" stroke={c.rail} strokeWidth="4" />
       <g stroke={c.rail} strokeWidth="1.5" opacity=".6">
-        <path d="M40 350 V428 M120 350 V428 M200 350 V428 M280 350 V428 M520 350 V428 M600 350 V428 M680 350 V428 M760 350 V428" />
+        <path d="M-1160 350 V428 M-1080 350 V428 M-1000 350 V428 M-920 350 V428 M-840 350 V428 M-760 350 V428 M-680 350 V428 M-600 350 V428 M-520 350 V428 M-440 350 V428 M-360 350 V428 M-280 350 V428 M-200 350 V428 M-120 350 V428 M-40 350 V428 M40 350 V428 M120 350 V428 M200 350 V428 M280 350 V428 M520 350 V428 M600 350 V428 M680 350 V428 M760 350 V428 M840 350 V428 M920 350 V428 M1000 350 V428 M1080 350 V428 M1160 350 V428 M1240 350 V428 M1320 350 V428 M1400 350 V428 M1480 350 V428 M1560 350 V428 M1640 350 V428 M1720 350 V428 M1800 350 V428 M1880 350 V428 M1960 350 V428" />
       </g>
-      <rect x="0" y="436" width="800" height="8" fill={c.skirting} />
-      <rect x="0" y="444" width="800" height="156" fill={c.floor} />
+      <rect x="-1200" y="436" width="3200" height="8" fill={c.skirting} />
+      <rect x="-1200" y="444" width="3200" height="1200" fill={c.floor} />
       <g stroke={c.floorLine} strokeWidth="2">
-        <path d="M0 478 H800 M0 520 H800 M0 566 H800" />
+        <path d="M-1200 478 H2000 M-1200 520 H2000 M-1200 566 H2000 M-1200 614 H2000 M-1200 664 H2000 M-1200 716 H2000" />
         <path d="M120 444 V478 M330 478 V520 M560 444 V478 M700 520 V566 M210 520 V566 M460 566 V600" />
       </g>
 
@@ -289,6 +293,11 @@ export function Nook(props: NookProps) {
 
       {/* string lights */}
       <path d="M0 34 Q400 112 800 34" stroke={c.wire} strokeWidth="1.8" fill="none" />
+      {/* the string hangs from a hook at each end */}
+      <g fill={c.wire}>
+        <circle cx="2" cy="33" r="3.5" />
+        <circle cx="798" cy="33" r="3.5" />
+      </g>
       <g fill="#FBA957" opacity={c.halo}>
         <circle cx="60" cy="47" r="11" />
         <circle cx="140" cy="60" r="11" />

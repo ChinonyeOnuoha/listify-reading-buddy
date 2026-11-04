@@ -332,6 +332,20 @@ describe("children’s corner", () => {
     expect(btn(/open the story/i)).toBeTruthy();
   });
 
+  it("the corner's wall clock shows the grown-up's choice, never the main practice's minutes", async () => {
+    await setUpMain(); // main practice: 10 minutes a day
+    const clock = () => document.querySelector("svg[role=img]")!.textContent ?? "";
+    expect(clock()).toMatch(/10\s*min a day/);
+    click(/reading buddy home/i);
+    click(/children’s corner/i);
+    await heading(/set a reading time/i);
+    radio(/^off/i);
+    await waitFor(() => expect(clock()).not.toMatch(/10/));
+    expect(clock()).toMatch(/not set/);
+    radio("5 minutes");
+    await waitFor(() => expect(clock()).toMatch(/5\s*min a day/));
+  });
+
   it("Bring your own starts empty, separate from the main practice", async () => {
     // Main practice first, with its own passage
     await setUpMain({ text: "The grown-up’s passage." });

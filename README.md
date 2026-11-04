@@ -23,13 +23,6 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 ## Privacy and your device
 Your passage, page photos, recordings and the nook’s choices are **kept on this device**, in this browser, so they’re there next time. They are **not uploaded**. The one exception is optional AI feedback in the main practice: only when an adult has chosen it and asks for feedback on a recording is that recording’s audio sent (never the passage or the photos), and Reading Buddy asks the service to delete it once the notes are ready (the service may already have kept a copy to train its models, as the explanation says). The children’s corner never sends anything. Anyone using the same browser can open what’s saved; **Saved on this device** (in the header) lists and deletes it. All fonts are part of the app. Details are in [docs/architecture.md](docs/architecture.md#kept-on-this-device).
 
-## Try it locally
-```bash
-bun install        # or: npm install --no-package-lock
-bun run dev        # or: npm run dev   → http://localhost:8080
-npm test           # unit tests
-```
-
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it
 - [Children’s reading corner](docs/children-corner.md) and its [story manifest and licence review](docs/children-corner-content.md)
