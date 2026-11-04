@@ -1,7 +1,7 @@
-// Optional AI feedback for adults. Off until the Cloudflare Worker is deployed and its address is set below (or in
-// VITE_AI_FEEDBACK_URL for local testing): while both are empty, nothing is ever uploaded and the app says so.
+// Optional AI feedback for adults, through the Cloudflare Worker below (VITE_AI_FEEDBACK_URL overrides it for local
+// testing). With both empty, AI feedback is off: nothing is ever uploaded and the app says so.
 // The address isn't a secret; the API key lives only in the Worker's secrets. Setup: docs/ai-feedback-setup.md.
-const WORKER_URL = "";
+const WORKER_URL = "https://reading-buddy-ai-feedback.marianonye.workers.dev";
 
 const fromEnv = (import.meta.env["VITE_AI_FEEDBACK_URL"] as string | undefined) ?? "";
 

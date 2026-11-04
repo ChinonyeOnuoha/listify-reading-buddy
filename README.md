@@ -17,7 +17,7 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 - **Installable and offline-capable** as a web app in supported browsers.
 
 ## What is not connected yet
-- **Optional AI feedback for adults, not yet switched on.** The code is in place (main practice only, never the children’s corner), but it stays off until the owner deploys its small Cloudflare Worker ([setup](docs/ai-feedback-setup.md)). Until then nothing analyses your recording. The "sample feedback" screens are invented examples, labelled as illustrative.
+- **Optional AI feedback for adults.** In the main practice only, never the children’s corner: an adult can choose to send one recording at a time through a small Cloudflare Worker to AssemblyAI ([setup](docs/ai-feedback-setup.md)). Nothing is sent unless they choose it and ask for feedback on a recording. The "sample feedback" screens are invented examples, labelled as illustrative.
 - **No automatic text extraction** from page photos: uploaded pages are shown as images for you to read from.
 
 ## Privacy and your device

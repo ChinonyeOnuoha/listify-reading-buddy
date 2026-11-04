@@ -181,17 +181,18 @@ Run by Claude Code with the owner’s approval; full results in [docs/ai-feedbac
 - **Cost and data:** credit used ≈ $0.056 at list price, within free credits. AssemblyAI transcripts were all deleted afterwards. AssemblyAI’s free plan can’t opt out of model training; the owner accepted this for these six recordings.
 - **Unchanged at the time:** nothing in the app or children’s corner changed or sent data.
 
-### Optional AI feedback for adults (2026-11-04, built; off until deployed)
+### Optional AI feedback for adults (2026-11-04, built; Worker deployed, app not yet published)
 Built by Claude Code at the owner’s request on top of the nook redesign; how it works is in [docs/architecture.md](docs/architecture.md#optional-ai-feedback-for-adults-off-until-connected).
 - **EU endpoint check:** a 34 s synthetic clip (macOS voice) with the free key on `api.eu.assemblyai.com` and Universal-3.5 Pro: accepted, transcribed, then deleted. Training exclusion for free accounts there is **not confirmed** in AssemblyAI’s published pages, so the app asks each adult to choose with training stated.
 - **Local end-to-end (simulated deployment):** Worker under `wrangler dev` with the key in a git-ignored local file (deleted afterwards), app dev server, the synthetic clip uploaded as a recording against the lab passage. Checked: only a status request before the adult asked; the consent dialog in the nook; feedback returned (“Nothing found in the areas checked”); AssemblyAI’s EU listing showed the transcript deleted; the children’s corner showed no AI feedback; the home footer wording. Two synthetic transcripts in all (one per design), a few tenths of a cent of free credit.
 - **Worker build:** `wrangler deploy --dry-run` (4.151.2) bundles it (8.3 KiB). It has **not** been deployed; Cloudflare sign-in and secrets are the owner’s steps ([docs/ai-feedback-setup.md](docs/ai-feedback-setup.md)).
-- **Not yet checked:** the deployed Worker and published app together, a real voice through the app, a real out-of-credit reply (simulated in tests), real devices, screen readers on the new dialog.
+- **Deployed Worker (2026-11-04):** deployed on Cloudflare Workers Free (`reading-buddy-ai-feedback.marianonye.workers.dev`, EU AssemblyAI region), key added as a Worker secret by the owner in Terminal. Checked from this Mac with curl and a script sending the synthetic clip (`lab/synthetic-audio/normal.wav`, macOS voice) the way the app does, with the published app's Origin: `/status` answered `available: true`, `training: may-be-used`; another Origin got 403; the clip was transcribed (116 words, about 7 s) and the prepared feedback read "Nothing found in the areas checked"; asking for the same transcript again returned no words, showing it had been deleted. The app's `WORKER_URL` now points at it. This is a scripted check against the live Worker, not the published app in a browser.
+- **Not yet checked:** the published app in a browser with the live Worker (the app isn't published with this change yet; localhost and Lovable's editor preview are not allowed origins, so they show "AI feedback can't be reached"), a real voice through the app, a real out-of-credit reply (simulated in tests), real devices, screen readers on the new dialog.
 - **Key handling:** a scan of the build output, source, docs and local settings found no API key value.
 
 ## Decisions made from these results
 - Keep the sample notes as clearly labelled illustrative samples, separate from any real feedback.
-- Cloud AI only as optional, consented AI feedback for adults in the main practice (Universal-3.5 Pro through the Worker), off until deployed; never in the children’s corner. Deepgram is not used, given its false-flag results.
+- Cloud AI only as optional, consented AI feedback for adults in the main practice (Universal-3.5 Pro through the Worker), live once the owner publishes the app; never in the children’s corner. Deepgram is not used, given its false-flag results.
 - Keep the lab, its tests and its documented findings in the repository, outside the production build and navigation.
 - Treat the companion as a button only where it cannot interfere with reading, recording or playback.
 - Self-hosting the fonts would remove the Google request; not done yet.
