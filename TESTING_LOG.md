@@ -155,13 +155,20 @@ Summary of [docs/ai-feasibility.md](docs/ai-feasibility.md):
 ### Cloud transcription experiment, adult lab only (2026-11-04)
 Run by Claude Code with the owner’s approval; full results in [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md).
 - **What was run:** the same six recordings (one reader, one phone) through Deepgram Nova-3, AssemblyAI Universal-3.5 Pro and AssemblyAI Universal-2, analysed locally, with prepared feedback sentences.
+- **Listening check (2026-11-04, by the reader):** the reader confirmed what was said at nine moments. Corrections to the script: “and” not read (*Normal*, *Changes*, *Pause*) and “can” for “could” (*Pace*). Everything else checked matched the script. The counts were then recalculated from the saved responses, with no new uploads. Agreement between providers was not treated as confirmation.
+- **Overall transcription errors, names included** (635 words): Universal-3.5 Pro 19 (3.0%), Universal-2 50 (7.9%), Deepgram 62 (9.8%).
+- **False flags that could reach feedback, names excluded:** Universal-3.5 Pro 9, Universal-2 35, Deepgram 53.
 - **Universal-3.5 Pro:**
-  - no false word flags on the normal reading (names excluded);
-  - kept every repetition and invented nothing;
+  - no false word flags on the normal reading;
   - the most accurate pause timing;
   - found the pace change, with no false ones elsewhere.
-- **Universal-2** silently dropped one restarted phrase. **Deepgram** made 56 system errors against Universal-3.5 Pro’s 12 (names excluded).
-- **Ground truth is partly provisional:** only the dropped “and” in *Normal reading* is confirmed by listening, and nine moments are still to be checked by ear.
+- **All three services:**
+  - missed the doubled “said” and added “an hour some” in its place;
+  - added an “and” in *Pace*;
+  - heard “a” for “the”, “he” for “it” and “said” for “swore”.
+- **Universal-2** also silently dropped one restarted phrase.
+- **Feedback limit:** in *Changes*, a false flag took one of the four places and pushed two real differences out of view.
+- **Not checked by ear:** the brief sound at 0:39.3 in *Pause* (possibly a breath); “to” twice in *Pace* at 0:25; where the *Silence/noise* reading ended.
 - **Cost and data:** credit used ≈ $0.056 at list price, within free credits. AssemblyAI transcripts were all deleted afterwards. AssemblyAI’s free plan can’t opt out of model training; the owner accepted this for these six recordings.
 - **Unchanged:** nothing in the app or children’s corner changed or sends data.
 

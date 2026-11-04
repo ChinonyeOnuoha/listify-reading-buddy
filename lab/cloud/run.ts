@@ -45,11 +45,20 @@ const FILES: Record<string, string> = {
   noise: "Background noise and silence.m4a",
 };
 
-/** What was said: the recording script, with corrections confirmed by the reader's listening. Anything not yet
- *  confirmed is provisional. The silence/noise recording has the first two sentences (all three transcripts agree). */
+/** What was said: the recording script, with corrections confirmed by the reader's listening. Agreement between
+ *  providers is never treated as confirmation; words not checked by ear are assumed read as scripted.
+ *  Listening check of 2026-11-04 (docs/ai-feedback-experiment.md) — these matched the script, so need no correction:
+ *  repeats "said said" and "the low stone wall"; changes "light it made"; pause "others swore it burned" and the
+ *  intended pause; pace no extra "and"; noise nothing before "Every evening", and "the low stone wall" at 0:18.
+ *  The silence/noise recording has the first two sentences: the reader confirmed words of the second at 0:18. */
 const CONFIRMED: Record<string, [string, string][]> = {
-  // Confirmed by the reader's listening check on 2026-10-08 (docs/ai-feasibility.md): "and" not read.
+  // 2026-10-08 check (docs/ai-feasibility.md): "and" not read.
   normal: [["went out early, and the next day", "went out early, the next day"]],
+  // 2026-11-04 check: "and" not read.
+  changes: [["went out early, and the next day", "went out early, the next day"]],
+  pause: [["went out early, and the next day", "went out early, the next day"]],
+  // 2026-11-04 check: "can", not "could".
+  pace: [["after dark could find", "after dark can find"]],
 };
 const SAID: Record<string, string> = Object.fromEntries(
   CASES.map((c) => {
@@ -59,7 +68,11 @@ const SAID: Record<string, string> = Object.fromEntries(
             .slice(0, 2)
             .join(" ")
         : c.synthetic.replace(/\[\[[^\]]*\]\]\s*/g, "");
-    for (const [from, to] of CONFIRMED[c.id] ?? []) said = said.replace(from, to);
+    for (const [from, to] of CONFIRMED[c.id] ?? []) {
+      if (!said.includes(from))
+        throw new Error(`${c.id}: correction “${from}” not found in the script`);
+      said = said.replace(from, to);
+    }
     return [c.id, said];
   }),
 );
@@ -337,6 +350,8 @@ for (const c of CASES) {
       c.id,
       run.id,
       String(vsSaid.length),
+      String(vsSaid.filter((d) => d.type === "ins" || !isName(said.split(/\s+/), d.at)).length),
+      String(normalise(said).length),
       String(cls.real.length),
       String(cls.system.length),
       String(cls.system.filter((d) => d.type === "ins" || !isName(TOKENS, d.at)).length),
@@ -349,8 +364,8 @@ for (const c of CASES) {
 md.push(
   "## Summary",
   "",
-  "| case | run | recognition errors vs said | real flags | system-error flags | of which not names | missed | pace change at sentence |",
-  "|---|---|---|---|---|---|---|---|",
+  "| case | run | recognition errors vs said (all words) | of which not names | words said | real flags | system-error flags | of which not names | missed | pace change at sentence |",
+  "|---|---|---|---|---|---|---|---|---|---|",
 );
 for (const row of table) md.push(`| ${row.join(" | ")} |`);
 md.push("", "## Billed audio (list price)", "");
