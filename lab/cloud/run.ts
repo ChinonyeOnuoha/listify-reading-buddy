@@ -47,18 +47,26 @@ const FILES: Record<string, string> = {
 
 /** What was said: the recording script, with corrections confirmed by the reader's listening. Agreement between
  *  providers is never treated as confirmation; words not checked by ear are assumed read as scripted.
- *  Listening check of 2026-11-04 (docs/ai-feedback-experiment.md) — these matched the script, so need no correction:
- *  repeats "said said" and "the low stone wall"; changes "light it made"; pause "others swore it burned" and the
- *  intended pause; pace no extra "and"; noise nothing before "Every evening", and "the low stone wall" at 0:18.
- *  The silence/noise recording has the first two sentences: the reader confirmed words of the second at 0:18. */
+ *  Second listening check of 2026-11-04 (docs/ai-feedback-experiment.md), which replaces the first one that day.
+ *  These matched the script, so need no correction: changes "light it made"; pace no extra "and"; noise nothing
+ *  before "Every evening". The silence/noise recording has the first two sentences: the reader confirmed words of
+ *  the second at 0:18. */
+const AND_NOT_READ: [string, string] = [
+  "went out early, and the next day",
+  "went out early, the next day",
+];
+const A_LOW_WALL: [string, string] = ["set it on the low stone wall", "set it on a low stone wall"];
 const CONFIRMED: Record<string, [string, string][]> = {
   // 2026-10-08 check (docs/ai-feasibility.md): "and" not read.
-  normal: [["went out early, and the next day", "went out early, the next day"]],
-  // 2026-11-04 check: "and" not read.
-  changes: [["went out early, and the next day", "went out early, the next day"]],
-  pause: [["went out early, and the next day", "went out early, the next day"]],
-  // 2026-11-04 check: "can", not "could".
+  normal: [AND_NOT_READ],
+  // A whole-phrase restart, not "said said"; "a" low stone wall.
+  repeats: [["Some said said an hour", "Some said an hour, some said an hour"], A_LOW_WALL],
+  changes: [AND_NOT_READ],
+  // "said", not "swore"; "and" not read.
+  pause: [["others swore it burned", "others said it burned"], AND_NOT_READ],
+  // "can", not "could".
   pace: [["after dark could find", "after dark can find"]],
+  noise: [A_LOW_WALL],
 };
 const SAID: Record<string, string> = Object.fromEntries(
   CASES.map((c) => {

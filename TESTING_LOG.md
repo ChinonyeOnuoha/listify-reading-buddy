@@ -155,18 +155,25 @@ Summary of [docs/ai-feasibility.md](docs/ai-feasibility.md):
 ### Cloud transcription experiment, adult lab only (2026-11-04)
 Run by Claude Code with the owner’s approval; full results in [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md).
 - **What was run:** the same six recordings (one reader, one phone) through Deepgram Nova-3, AssemblyAI Universal-3.5 Pro and AssemblyAI Universal-2, analysed locally, with prepared feedback sentences.
-- **Listening check (2026-11-04, by the reader):** the reader confirmed what was said at nine moments. Corrections to the script: “and” not read (*Normal*, *Changes*, *Pause*) and “can” for “could” (*Pace*). Everything else checked matched the script. The counts were then recalculated from the saved responses, with no new uploads. Agreement between providers was not treated as confirmation.
-- **Overall transcription errors, names included** (635 words): Universal-3.5 Pro 19 (3.0%), Universal-2 50 (7.9%), Deepgram 62 (9.8%).
-- **False flags that could reach feedback, names excluded:** Universal-3.5 Pro 9, Universal-2 35, Deepgram 53.
+- **Listening checks (2026-11-04, by the reader):** the reader checked nine moments, then listened again and corrected their first answers, which they had made while tired. Only the second answers are used:
+  - “and” not read (*Normal*, *Changes*, *Pause*);
+  - a whole-phrase restart “Some said an hour … some said an hour”, not “said said”;
+  - “a low stone wall”;
+  - “others said it burned”;
+  - “can” for “could”;
+  - “it” (not “he”), no extra “and”, and nothing before “Every evening”, all as scripted.
+
+  The counts were recalculated from the saved responses, with no new uploads. Agreement between providers was not treated as confirmation.
+- **Overall transcription errors, names included** (638 words): Universal-3.5 Pro 13 (2.0%), Universal-2 44 (6.9%), Deepgram 56 (8.8%).
+- **False flags that could reach feedback, names excluded:** Universal-3.5 Pro 3, Universal-2 29, Deepgram 47.
 - **Universal-3.5 Pro:**
   - no false word flags on the normal reading;
+  - kept every restarted phrase;
   - the most accurate pause timing;
   - found the pace change, with no false ones elsewhere.
-- **All three services:**
-  - missed the doubled “said” and added “an hour some” in its place;
-  - added an “and” in *Pace*;
-  - heard “a” for “the”, “he” for “it” and “said” for “swore”.
+- **All three services** heard “he” for “it” and added an “and” in *Pace*.
 - **Universal-2** also silently dropped one restarted phrase.
+- **Not tested:** no recording contains a single repeated word.
 - **Feedback limit:** in *Changes*, a false flag took one of the four places and pushed two real differences out of view.
 - **Not checked by ear:** the brief sound at 0:39.3 in *Pause* (possibly a breath); “to” twice in *Pace* at 0:25; where the *Silence/noise* reading ended.
 - **Cost and data:** credit used ≈ $0.056 at list price, within free credits. AssemblyAI transcripts were all deleted afterwards. AssemblyAI’s free plan can’t opt out of model training; the owner accepted this for these six recordings.
