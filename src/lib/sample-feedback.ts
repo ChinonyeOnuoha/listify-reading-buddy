@@ -29,7 +29,6 @@ export type SampleExample = {
   observation: string;
   /** Optional experiment for a NEW passage — never a reread */
   experiment?: string;
-  extraTips?: string[];
 };
 
 export const SAMPLE_EXAMPLES: SampleExample[] = [
@@ -38,57 +37,44 @@ export const SAMPLE_EXAMPLES: SampleExample[] = [
     status: "difference",
     label: "Repetitions",
     words: "“card means means more”",
-    location: "Sentence 1",
-    observation: "“means” was heard twice in a row here.",
-    experiment:
-      "If you'd like, try guiding your eyes with a finger or pen 👆 on your next passage and notice how it feels.",
-    extraTips: ["Some readers like to glance a line ahead with their eyes. Entirely optional."],
+    observation: "A word was said twice in a row.",
+    experiment: "follow the line with a finger or pen.",
   },
   {
     kind: "word-change",
     status: "difference",
-    label: "Missing, added or replaced words",
+    label: "Changed words",
     words: "Text: “a quiet corner” · Heard: “the quiet corner”",
-    location: "Sentence 2",
-    observation:
-      "The word heard here was different from the one on the page. Pronunciation and accent aren't compared — only which word was read.",
-    experiment: "On a new passage, you could try a quick silent skim first 👀 and see whether you like reading that way.",
+    observation: "One word came out differently from the text.",
+    experiment: "skim the passage silently once before reading aloud.",
   },
   {
     kind: "pause",
     status: "review",
     label: "Pauses",
     words: "“a librarian … who remembers”",
-    location: "Sentence 2",
-    observation:
-      "There was a pause of about 2 seconds inside this phrase. Pauses can be perfectly natural — this is just a moment you might like to listen back to.",
-    experiment: "If you're curious, lightly mark phrase groups ✏️ in your next passage before reading it aloud.",
+    observation: "There was a longer pause in the middle of a phrase.",
+    experiment: "lightly mark phrase groups before you start.",
   },
   {
     kind: "pacing",
     status: "review",
-    label: "Pacing changes",
+    label: "Pace",
     words: "“and a stack of stories waiting to be opened”",
-    location: "Final phrase",
-    observation:
-      "This phrase was read noticeably faster than the rest. A pace change isn't automatically a problem — it's simply worth a listen.",
-    experiment: "For a new passage, you could take one easy breath 🌬️ before the final sentence and notice how it sounds.",
-    extraTips: ["Recording a minute at a time can make pace easier to hear. Optional."],
+    observation: "The pace picked up towards the end of a sentence.",
+    experiment: "take one easy breath before the last sentence.",
   },
   {
     kind: "no-findings",
     status: "clear",
-    label: "No findings",
-    location: "Checked: words, repetitions, pauses, pace",
-    observation: "Nice one for making time to read 🙌🏾 Nothing stood out in the areas checked.",
+    label: "All clear",
+    observation: "Nothing stood out in the words, repetitions, pauses or pace.",
   },
   {
     kind: "uncertain",
     status: "unsure",
-    label: "Uncertainty",
+    label: "Not sure",
     words: "“and a stack of stories waiting to be opened”",
-    location: "Final sentence",
-    observation:
-      "Thanks for putting in the practice 💛 The pacing in the last sentence couldn't be assessed confidently, so it's left open rather than guessed.",
+    observation: "Buddy couldn’t hear this part clearly, so it says nothing about it.",
   },
 ];

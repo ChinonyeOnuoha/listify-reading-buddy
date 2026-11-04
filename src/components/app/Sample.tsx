@@ -1,4 +1,4 @@
-import { SAMPLE_EXAMPLES, SAMPLE_PASSAGE, STATUS_LABEL } from "@/lib/sample-feedback";
+import { SAMPLE_EXAMPLES, SAMPLE_PASSAGE } from "@/lib/sample-feedback";
 import { ScreenTitle, StepHead } from "./ui";
 
 /**
@@ -105,7 +105,6 @@ export function SamplePanel({
                 </span>
               </div>
               <h2 className="text-lg font-semibold">{ex.label}</h2>
-              <p className="text-sm text-muted-foreground">{STATUS_LABEL[ex.status]}</p>
               {ex.words && (
                 <p className="rounded-lg bg-night px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--amber)]">
                   {ex.words}
@@ -113,12 +112,7 @@ export function SamplePanel({
               )}
               <p className="leading-normal">{ex.observation}</p>
               {ex.experiment && (
-                <p className="mt-auto text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">
-                    Optional, for a new passage:{" "}
-                  </span>
-                  {ex.experiment}
-                </p>
+                <p className="mt-auto text-sm text-muted-foreground">Next time, you could: {ex.experiment}</p>
               )}
             </article>
           </div>
