@@ -12,10 +12,10 @@ export type StampInput = {
 const ID = '"__RB_BUILD_ID__"';
 const LIST = '["__RB_PRECACHE__"]';
 
-/** Scripts and styles to precache, as URLs. */
+/** Scripts, styles and self-hosted font files to precache, as URLs. */
 export const precacheList = (bundleFiles: string[]) =>
   bundleFiles
-    .filter((f) => f.startsWith("assets/") && /\.(js|css)$/.test(f))
+    .filter((f) => f.startsWith("assets/") && /\.(js|css|woff2)$/.test(f))
     .map((f) => `/${f}`)
     .sort();
 

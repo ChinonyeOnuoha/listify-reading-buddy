@@ -78,6 +78,12 @@ describe("service worker build stamping", () => {
     expect(one.buildId).toMatch(/^[a-f0-9]{12}$/);
   });
 
+  it("precaches self-hosted font files from the bundle", () => {
+    expect(precacheList(["assets/dm-serif-display-latin-400-normal-X1.woff2", "assets/font.ttf"])).toEqual([
+      "/assets/dm-serif-display-latin-400-normal-X1.woff2",
+    ]);
+  });
+
   it("precaches only built scripts and styles, as absolute URLs", () => {
     expect(precacheList(base.bundleFiles)).toEqual([
       "/assets/index-AAA111.js",

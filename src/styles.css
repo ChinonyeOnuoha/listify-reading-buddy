@@ -1,6 +1,9 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+/* Self-hosted fonts (bundled by Vite and precached by the service worker; no third-party request). */
+@import "@fontsource-variable/atkinson-hyperlegible-next";
+@import "@fontsource/dm-serif-display/400.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -25,8 +28,8 @@
 }
 
 @theme inline {
-  --font-display: "Manrope", system-ui, sans-serif;
-  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Atkinson Hyperlegible Next Variable", system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible Next Variable", system-ui, sans-serif;
   --font-logo: "DM Serif Display", Georgia, serif;
   --font-welcome: "Fraunces", "Fraunces Fallback", Georgia, serif;
   --color-heading: var(--heading);
