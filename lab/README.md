@@ -54,6 +54,8 @@ Everything is cached by the browser (Cache API, `transformers-cache`) after the 
 - Keys: `DEEPGRAM_API_KEY` and `ASSEMBLYAI_API_KEY` in the repository’s git-ignored `.env.local` (no `VITE_` prefix). Only this Node process reads them; nothing runs in a browser, and errors are scrubbed of keys.
 - Only the audio is sent, never the passage. Deepgram requests carry `mip_opt_out=true`; AssemblyAI transcripts (and with them the uploaded audio) are deleted once both models have finished.
 - Recordings are read from `RECORDINGS_DIR` (default `~/Downloads`). Converted WAVs, raw provider responses and the local report (with transcripts) go to the git-ignored `lab/.cloud-results/` — delete it when finished.
+- Fresh passage: `node lab/cloud/run.ts --fresh [--upload]` analyses the three recordings in [`FRESH_RECORDING_SCRIPT.md`](FRESH_RECORDING_SCRIPT.md) (`fresh-material.ts`) with Universal-3.5 Pro only, writing `fresh-report.md`. Missing recordings are skipped.
+- The local report lists feedback items hidden by the four-item limit, for reviewing the limit.
 - Results: [`../docs/ai-feedback-experiment.md`](../docs/ai-feedback-experiment.md).
 
 ## Results so far

@@ -174,8 +174,76 @@ The reader listened to these moments twice on 2026-11-04. The second listen corr
 **Still not checked by ear:**
 - what the brief sound at 0:39.3 was (the 5.7 s figure counts it as part of one pause);
 - “to” heard twice in *Pace* at 0:25 (Universal-3.5 Pro only);
-- where the *Silence/noise* reading ended. The reader’s answer at 0:18 shows the second sentence was read; the end point comes from the transcripts;
+- where the *Silence/noise* reading ended. The reader’s answer at 0:18 shows the second sentence was read; the end point comes from the transcripts and the audio level;
+
+Playback ranges for these are in [Open checks: where to listen](#open-checks-where-to-listen).
 - every word outside the moments above, which is assumed read as scripted.
+
+## Open checks: where to listen
+| Recording | Play | Words | What the evidence shows | Question |
+|---|---|---|---|---|
+| A noticeable change in pace | **0:24–0:27** | “Children liked **to** guess how long the flame” | Universal-3.5 Pro has two “to”s at 0:25.5–0:25.7, overlapping in time. Deepgram and Universal-2 have one. The audio has one short burst of speech there (0:25.4–0:25.6) before “guess” at about 0:25.7. | Was “to” said once or twice? |
+| Background noise and silence | **0:25–0:30** (and, if you like, on to the end at 0:35) | “… so that anyone walking home after dark could find the gate to the community **garden.**” | Speech ends at about 0:27.8. From 0:27.9 to the end the audio stays at the background level. Universal-2 alone has an extra “it” at 0:28.2, where the audio is at background level. | Did you stop after “community garden”? Was anything said after it? |
+
+The brief sound at 0:39.3 in *A deliberate pause* stays unidentified (possibly a breath). It doesn’t change any count.
+
+## Feedback limit review
+Feedback shows at most four items. Word differences rank above pauses and pace, and the rest are counted as “N more not shown”. The lab report now lists the hidden items too.
+
+**Universal-3.5 Pro, all six recordings:**
+- **Hidden in only one recording,** *Changes*. Shown were “low” missing, “village”, “very” and ✗ “he” for “it”. Hidden were two **real** differences: “and” missing (0:41) and “two” for “three” (0:43).
+- **Everything else fitted in four items.** The false flags shown were ✗ “he” for “it” (*Changes*) and ✗ the extra “and” (*Pace*). The “to” twice (*Pace*) is still to be checked.
+
+**With a noisier recogniser the limit does real harm.** Deepgram’s word flags pushed out the scripted 5.7 s pause in *Pause* and the pace change in *Pace*. Those are the observations the timing evidence supports best. Up to 10 items were hidden per recording.
+
+**Recommendation for keeping feedback manageable:**
+1. **Pauses and pace never compete with word differences.** At most one pause and one pace item, always shown when found.
+2. **Small words share one line.** Differences involving only short common words (a, the, and, to, it, he, can, could…) are grouped into one item, for example “A few small words differed: ‘and’ (0:41), ‘he’ for ‘it’ (0:31)”. This is a general word list, not taken from the test passage. Every false flag left for Universal-3.5 Pro is a small word, but so are several real differences (“and” three times, “a” for “the”). Grouping keeps them visible without letting them crowd anything out.
+3. **Other word differences fill the remaining places, in time order,** up to five lines in all.
+4. **Nothing disappears silently.** Anything over the limit goes in a “Show N more” list with times, so the reader can still find it.
+
+On these six recordings, rules 1–3 would show every real difference Universal-3.5 Pro found. *Changes* would show five lines: “low”, “village”, “very”, “two”, and one small-words line. The two remaining false flags would each occupy part of one line rather than a full place.
+
+## Next: fresh passage test (prepared, not yet recorded)
+The second test uses a new passage, so results show how the analysis works on text it wasn’t adjusted for. Script: [`lab/FRESH_RECORDING_SCRIPT.md`](../lab/FRESH_RECORDING_SCRIPT.md); code: `lab/fresh-material.ts`.
+- **Recordings:** three, about 40–50 s each:
+  - F1: natural reading;
+  - F2: one deliberate single-word repetition (“sold sold”) and one omission (“cold”);
+  - F3: a pause of about 2 s inside “a small cheer … went up”, then a faster pace from “The crossing took”.
+- **Expectations:** written before recording, in the script and the code. A lab test checks that a perfect transcript of each script gives exactly the expected feedback.
+- **No tuning:** the analysis isn’t changed to fit these results. Any later change will be reported separately from the first result.
+- **Service:** Universal-3.5 Pro only (`node lab/cloud/run.ts --fresh --upload`), after the owner’s go-ahead. About 2.5 minutes of audio, ≈ $0.01 of the free credit.
+- **Reference:** the reader’s own listening notes, not agreement between services.
+
+## Using Universal-3.5 Pro on the free account
+Checked on AssemblyAI’s official pricing, billing, concurrency and data-retention pages on 2026-11-04.
+- **Setup:** nothing more is needed. The existing free account and key already run Universal-3.5 Pro.
+- **Cost:** $0 to the owner.
+  - Free credit: $50 in total, no card needed, and the credit doesn’t expire. About $0.033 has been used, which leaves room for roughly 237 hours of audio at $0.21 per hour.
+  - When the credit runs out with no card on the account, AssemblyAI pauses API access rather than charging. **No card, top-up or auto-pay is to be added.**
+- **Limits:** up to 5 transcriptions at the same time on the free tier.
+- **Training stays on.** The owner has chosen this. AssemblyAI may use uploaded audio to improve its models; it says files are redacted for personal information first. On the free tier:
+  - there’s no opt-out;
+  - there’s no shorter retention setting (TTL);
+  - uploads are deleted after 24–48 h;
+  - the lab deletes each transcript as soon as it is saved.
+- **Unresolved:** AssemblyAI’s data-retention page says files sent to its **European servers** aren’t used for training. Its data-controls page says free users can’t opt out. It isn’t confirmed whether the EU route applies to free accounts, so this would need a written answer from AssemblyAI support before relying on it.
+
+**What this means for the AI feedback feature and for app users:**
+- **Adult lab:** fine for the owner’s own recordings, and for any adult tester who agrees in writing to training use.
+- **Public feature:** not suitable on these terms.
+  - **Privacy promise:** the app promises that recordings never leave the device. A cloud feature would send each reader’s voice to a company that may train on it, with no way for them or the owner to opt out.
+  - **Consent and notice:** offering it would need explicit opt-in consent each time and a rewritten privacy notice.
+  - **Children:** it should never be offered for children.
+- **Server needed:** the key can’t be in the browser. A public feature would need a small server function to hold it, with sign-in or rate limits so strangers can’t use up the credit. The app has no server today.
+- **Capacity:** the credit is finite and the feature would simply stop when it runs out. At five at a time, busy moments would queue.
+- **Ways forward if it ever goes public:**
+  - Deepgram, whose opt-out works on its free credit, though it is less accurate;
+  - AssemblyAI’s EU servers, if support confirms they apply to free accounts;
+  - a paid AssemblyAI plan with the opt-out on;
+  - keeping feedback on the device.
+
+Sources: [pricing](https://www.assemblyai.com/pricing), [billing](https://www.assemblyai.com/docs/billing-and-pricing.md), [credit expiry](https://www.assemblyai.com/docs/faq/do-my-free-credits-expire), [concurrency](https://www.assemblyai.com/docs/faq/what-are-my-concurrency-limits), [data retention and training](https://www.assemblyai.com/docs/data-retention-and-model-training), [data controls](https://assemblyai.com/docs/data-controls), [model-training opt-out](https://assemblyai.com/docs/faq/how-to-opt-out-of-data-sharing-for-our-model-improvement-program).
 
 ## Limits
 One reader, one phone, one passage, one take per case, and a ground truth checked by ear only at the moments listed above. These results show the pipeline can work; they say nothing about other voices, accents, children, microphones or rooms, and they don’t establish why any recognition error happened.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { align, mergePauses, timestampQuality, type Pause } from "./analysis";
 import { buildFeedback, paceChange } from "./feedback";
+import { FRESH_CASES, FRESH_PASSAGE } from "./fresh-material";
 
 const PASSAGE =
   "The cat sat on the mat. It was warm and quiet there. A bird sang in the tree. The cat did not move at all. Then the sun went down.";
@@ -125,5 +126,33 @@ describe("prepared feedback", () => {
     };
     expect(paceChange(PASSAGE, align(PASSAGE, words), [pause]).change).toBeNull();
     expect(fb(words, [pause]).items.map((i) => i.kind)).toEqual(["pause"]);
+  });
+});
+
+// The fresh passage's scripts read perfectly (an ideal transcript): checks the expectations written before recording,
+// without any change to the analysis.
+describe("fresh passage scripts", () => {
+  const fresh = (said: string) => {
+    const words = read(said.replace(/[.,]/g, ""));
+    return buildFeedback({
+      passage: FRESH_PASSAGE,
+      ops: align(FRESH_PASSAGE, words),
+      words,
+      pauses: [],
+      quality: timestampQuality(words),
+    });
+  };
+  const byId = (id: string) => FRESH_CASES.find((c) => c.id === id)!;
+
+  it("finds nothing in the natural reading", () => {
+    expect(fresh(byId("fresh-natural").said).items.map((i) => i.kind)).toEqual(["clear"]);
+  });
+
+  it("reports the repeated “sold” and the missing “cold”, and nothing else", () => {
+    const f = fresh(byId("fresh-repeat-omit").said);
+    expect(f.items.map((i) => i.kind)).toEqual(["repetition", "omission"]);
+    expect(f.items[0]!.observation).toContain("“sold” was heard twice");
+    expect(f.items[1]!.observation).toContain("“cold” wasn't heard");
+    expect(f.hidden).toEqual([]);
   });
 });

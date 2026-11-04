@@ -2,6 +2,7 @@
 //
 //   node lab/cloud/run.ts            # analyse saved provider results only (no upload, no cost)
 //   node lab/cloud/run.ts --upload   # upload any recording that has no saved result yet, then analyse
+//   node lab/cloud/run.ts --fresh [--upload]   # the fresh passage (lab/fresh-material.ts), Universal-3.5 Pro only
 //
 // Keys come from the git-ignored .env.local and stay in this process. Converted audio, raw provider responses and the
 // report are written to the git-ignored lab/.cloud-results/. Recordings are read from RECORDINGS_DIR (default ~/Downloads).
@@ -20,7 +21,8 @@ import {
   type Word,
 } from "../analysis.ts";
 import { buildFeedback, clock, isName, paceChange, refIndexes } from "../feedback.ts";
-import { CASES, PASSAGE } from "../test-material.ts";
+import { FRESH_CASES, FRESH_PASSAGE } from "../fresh-material.ts";
+import { CASES, PASSAGE as ORIGINAL_PASSAGE } from "../test-material.ts";
 import {
   assembly,
   assemblyDelete,
@@ -33,8 +35,10 @@ import {
 const ROOT = new URL("../..", import.meta.url).pathname;
 const OUT = join(ROOT, "lab/.cloud-results");
 const REC = process.env["RECORDINGS_DIR"] ?? join(homedir(), "Downloads");
-const TOKENS = PASSAGE.split(/\s+/);
 const UPLOAD = process.argv.includes("--upload");
+const FRESH = process.argv.includes("--fresh");
+const PASSAGE = FRESH ? FRESH_PASSAGE : ORIGINAL_PASSAGE;
+const TOKENS = PASSAGE.split(/\s+/);
 
 const FILES: Record<string, string> = {
   normal: "Normal reading.m4a",
@@ -72,7 +76,7 @@ const SAID: Record<string, string> = Object.fromEntries(
   CASES.map((c) => {
     let said =
       c.id === "noise"
-        ? PASSAGE.split(/(?<=\.)\s/)
+        ? ORIGINAL_PASSAGE.split(/(?<=\.)\s/)
             .slice(0, 2)
             .join(" ")
         : c.synthetic.replace(/\[\[[^\]]*\]\]\s*/g, "");
@@ -91,26 +95,24 @@ const PRICE_PER_MIN: Record<string, number> = {
   "universal-3-5-pro": 0.21 / 60,
   "universal-2": 0.15 / 60,
 };
-const RUNS = [
+const ALL_RUNS = [
   { id: "deepgram", label: "Deepgram Nova-3" },
   { id: "aai-u35", label: "AssemblyAI Universal-3.5 Pro" },
   { id: "aai-u2", label: "AssemblyAI Universal-2" },
 ] as const;
+// The fresh passage goes to the recommended model only.
+const RUNS = FRESH ? ALL_RUNS.filter((r) => r.id === "aai-u35") : ALL_RUNS;
+
+/** The recordings analysed in this run, with what was said in each. */
+const SET: { id: string; title: string; file: string; said: string }[] = FRESH
+  ? FRESH_CASES
+  : CASES.map((c) => ({ id: c.id, title: c.title, file: FILES[c.id]!, said: SAID[c.id]! }));
 
 // ── audio ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-function toWav(caseId: string): string {
+function toWav(caseId: string, file: string): string {
   const wav = join(OUT, `${caseId}.wav`);
   if (!existsSync(wav))
-    execFileSync("afconvert", [
-      "-f",
-      "WAVE",
-      "-d",
-      "LEI16@16000",
-      "-c",
-      "1",
-      join(REC, FILES[caseId]!),
-      wav,
-    ]);
+    execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@16000", "-c", "1", join(REC, file), wav]);
   return wav;
 }
 /** 16-bit PCM samples from a WAV file (handles WAVE_FORMAT_EXTENSIBLE headers by walking the chunks). */
@@ -254,12 +256,17 @@ const md: string[] = [
 const table: string[][] = [];
 const billed: Record<string, number> = {};
 
-for (const c of CASES) {
-  const wavPath = toWav(c.id);
+for (const c of SET) {
+  if (!existsSync(join(OUT, `${c.id}.wav`)) && !existsSync(join(REC, c.file))) {
+    console.log(`Skipped ${c.title}: “${c.file}” not found in ${REC}`);
+    md.push(`## ${c.title}`, "", `_Recording “${c.file}” not found._`, "");
+    continue;
+  }
+  const wavPath = toWav(c.id, c.file);
   const wav = readFileSync(wavPath);
   const { audio, rate } = samples(wav);
   const seconds = audio.length / rate;
-  const said = SAID[c.id]!;
+  const said = c.said;
   const expected = diffs(
     align(
       PASSAGE,
@@ -353,6 +360,14 @@ for (const c of CASES) {
       `- Try next: ${fb.tryNext ?? "—"}${fb.notShown ? ` (${fb.notShown} more not shown)` : ""}`,
       "",
     );
+    if (fb.hidden.length) {
+      md.push("Not shown (over the four-item limit):", "");
+      for (const i of fb.hidden)
+        md.push(
+          `- [${i.status}] ${i.words}${i.at != null ? ` (${clock(i.at)})` : ""} — ${i.observation}`,
+        );
+      md.push("");
+    }
 
     table.push([
       c.id,
@@ -384,7 +399,8 @@ for (const [model, s] of Object.entries(billed)) {
   md.push(`- ${model}: ${s.toFixed(1)} s = ${(s / 60).toFixed(2)} min → $${cost.toFixed(4)}`);
 }
 md.push(`- Total: $${total.toFixed(4)}`);
-writeFileSync(join(OUT, "report.md"), md.join("\n"));
+const REPORT = FRESH ? "fresh-report.md" : "report.md";
+writeFileSync(join(OUT, REPORT), md.join("\n"));
 console.log(
-  `Report written to lab/.cloud-results/report.md (${table.length} provider runs analysed; total list-price cost $${total.toFixed(4)})`,
+  `Report written to lab/.cloud-results/${REPORT} (${table.length} provider runs analysed; total list-price cost $${total.toFixed(4)})`,
 );

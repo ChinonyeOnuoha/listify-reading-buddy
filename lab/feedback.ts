@@ -19,7 +19,13 @@ export type Item = {
   at: number | null;
   observation: string;
 };
-export type Feedback = { items: Item[]; tryNext: string | null; notShown: number };
+export type Feedback = {
+  items: Item[];
+  tryNext: string | null;
+  notShown: number;
+  /** The items left out by the limit, in time order (for reviewing the limit, not for the reader). */
+  hidden: Item[];
+};
 
 type Timed = Word & { confidence?: number };
 export type FeedbackInput = {
@@ -303,10 +309,11 @@ export function buildFeedback({ passage, ops, words, pauses, quality }: Feedback
 
   // Keep the most useful few (differences, then moments to review, then open questions), shown in time order.
   const rank: Record<Status, number> = { difference: 0, review: 1, unsure: 2, clear: 3 };
-  const shown = [...items]
-    .sort((a, b) => rank[a.status] - rank[b.status] || (a.at ?? Infinity) - (b.at ?? Infinity))
-    .slice(0, MAX_ITEMS)
-    .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
+  const ranked = [...items].sort(
+    (a, b) => rank[a.status] - rank[b.status] || (a.at ?? Infinity) - (b.at ?? Infinity),
+  );
+  const byTime = (a: Item, b: Item) => (a.at ?? Infinity) - (b.at ?? Infinity);
+  const shown = ranked.slice(0, MAX_ITEMS).sort(byTime);
   const found = shown.filter((i) => i.status === "difference" || i.status === "review");
   if (!found.length) {
     shown.unshift({
@@ -324,5 +331,6 @@ export function buildFeedback({ passage, ops, words, pauses, quality }: Feedback
     items: shown,
     tryNext: lead ? (TRY[lead.kind] ?? null) : null,
     notShown: items.length - Math.min(items.length, MAX_ITEMS),
+    hidden: ranked.slice(MAX_ITEMS).sort(byTime),
   };
 }
