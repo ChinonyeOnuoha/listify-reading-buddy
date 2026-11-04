@@ -28,7 +28,7 @@ Reading Buddy can be installed as an app on browsers that support it.
 - The service worker only registers in production builds (not on the dev server). `vite preview` can't run this app's Cloudflare-targeted build; to test it locally build with `NITRO_PRESET=node-server npx vite build` and run `node .output/server/index.mjs`.
 
 ## Kept on this device
-Reading Buddy has no accounts, database or backend of its own for user content, and uploads nothing.
+Reading Buddy has no accounts or database for user content, and uploads nothing, with one optional exception: AI feedback for adults (below).
 - **Reading content** (pasted text, page photos as their original image files, the words added for a page, recordings as WAV or the uploaded audio file, and in the children’s corner the chosen story and the page reached) is kept in the browser’s **IndexedDB** for this site, one entry per corner (`main` and `children`). Writes are coalesced so typing doesn’t write on every key. It comes back on the next visit.
 - **The nook’s choices** (minutes, cushion, beanbag, the corner’s reading time, Sound, and whether the one-time notes have been shown) are kept in `localStorage`. They contain no reading content.
 - **Deleting:** Saved on this device lists each corner’s content with its size and deletes it (with Undo); Delete all removes both corners’ content; Forget my nook resets the remembered choices. Deleting a page, a recording or a session removes it from the store once the Undo time has passed.
@@ -50,3 +50,14 @@ The development lab is separate: it downloads speech and OCR model files from pu
 
 ## Production build excludes the lab and notes
 The lab lives outside `src/` and is never imported by the app. Each time the build is checked, `.output/` is searched for lab and model code (transformers, whisper, tesseract, `asr.worker`, `lab/`) and for the documentation files; none appear. The app has no route or link to the lab.
+
+## Optional AI feedback for adults (off until connected)
+- **Where:** the main practice’s “Have a listen back” screen only (`src/components/app/AiFeedback.tsx`, `useAiFeedback.ts`). The children’s corner never shows or uses it; a test checks this.
+- **Switch:** off while `WORKER_URL` in `src/lib/ai-feedback/config.ts` is empty (the app then says “AI feedback isn’t connected yet” and the footer still says nothing is uploaded).
+- **Consent:** an adult opens *About AI feedback*, confirms they’re 18 or over and reading in their own voice, and chooses *Use AI feedback, knowing this* or *Keep recordings on this device*. The dialog says AssemblyAI may use recordings to train its models, that the free plan can’t switch this off, and that deleting the recording later doesn’t undo training use. There’s no opt-out switch, because the backend can’t honour one. The choice is remembered in `localStorage` and can be changed at any time, for recordings from then on. It is asked again if the training terms change.
+- **What is sent:** nothing until the adult presses *Get AI feedback on this recording*. Then only that recording’s audio goes to the Worker (`worker/`), which holds the AssemblyAI key as a secret and sends it to Universal-3.5 Pro on AssemblyAI’s EU servers. The passage and pages are never sent; the comparison, pauses and pace are worked out in the browser (`src/lib/reading-feedback/`).
+- **Deletion:** the Worker deletes the transcript and uploaded audio from AssemblyAI as soon as the words are collected, and every 10 minutes sweeps any that were never collected. It stores no audio, words or passage text, only a daily total of audio seconds, each pending transcript’s counted seconds for a day, and a “credit ran out” flag (Workers KV). Request logging is off.
+- **Limits and pauses:** 20 minutes per recording, 60 minutes a day in all. When AssemblyAI reports no credit, or the daily limit is reached, or the Worker is switched off, AI feedback pauses with a plain message; recording, playback and saving carry on. No card or top-up is on the AssemblyAI account, so running out never charges.
+- **Provider:** behind a small interface (`worker/src/provider.ts`); only AssemblyAI is implemented and nothing switches automatically.
+- Setup: [ai-feedback-setup.md](ai-feedback-setup.md). Evidence and its limits: [ai-feedback-experiment.md](ai-feedback-experiment.md).
+

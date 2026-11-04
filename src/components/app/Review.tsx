@@ -143,6 +143,7 @@ export function AdultReview({
   onRecordAgain,
   onBackToNook,
   more,
+  feedback,
 }: {
   take: AudioTake | null;
   target: number | null;
@@ -151,6 +152,8 @@ export function AdultReview({
   onRecordAgain: () => void;
   onBackToNook: () => void;
   more: MoreItem[];
+  /** Optional AI feedback (main practice only), when it's connected. */
+  feedback?: ReactNode;
 }) {
   return (
     <>
@@ -167,9 +170,16 @@ export function AdultReview({
             : "No recording yet. Head back to read when you’re ready."}
         </p>
         {take && <Player key={take.url} take={take} startAt={startAt} onPosition={onPosition} />}
-        <p className="text-sm text-muted-foreground">
-          Saved on this device. AI feedback isn’t connected yet.
-        </p>
+        {feedback ? (
+          <>
+            <p className="text-sm text-muted-foreground">Saved on this device.</p>
+            {take && feedback}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Saved on this device. AI feedback isn’t connected yet.
+          </p>
+        )}
       </div>
       <div className="panel-foot">
         <div className="flex gap-2">

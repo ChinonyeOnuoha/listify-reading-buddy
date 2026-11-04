@@ -17,11 +17,11 @@ It began as *Listify: Reading Buddy*, a separate project inspired by my earlier 
 - **Installable and offline-capable** as a web app in supported browsers.
 
 ## What is not connected yet
-- **No live AI feedback.** Nothing analyses your recording. The "sample feedback" screens are invented examples, labelled as illustrative.
+- **Optional AI feedback for adults, not yet switched on.** The code is in place (main practice only, never the children’s corner), but it stays off until the owner deploys its small Cloudflare Worker ([setup](docs/ai-feedback-setup.md)). Until then nothing analyses your recording. The "sample feedback" screens are invented examples, labelled as illustrative.
 - **No automatic text extraction** from page photos: uploaded pages are shown as images for you to read from.
 
 ## Privacy and your device
-Your passage, page photos, recordings and the nook’s choices are **kept on this device**, in this browser, so they’re there next time. They are **not uploaded**, and nothing is sent for AI processing. Anyone using the same browser can open them; **Saved on this device** (in the header) lists and deletes them. All fonts are part of the app, so loading it contacts no third party. Details are in [docs/architecture.md](docs/architecture.md#kept-on-this-device).
+Your passage, page photos, recordings and the nook’s choices are **kept on this device**, in this browser, so they’re there next time. They are **not uploaded**. The only exception, once connected, is optional AI feedback in the main practice: an adult has to choose it first (the choice explains that AssemblyAI may use the recording to train its models) and then ask for it on a recording, and only that recording’s audio is sent. The children’s corner never sends anything. Anyone using the same browser can open them; **Saved on this device** (in the header) lists and deletes them. All fonts are part of the app, so loading it contacts no third party. Details are in [docs/architecture.md](docs/architecture.md#kept-on-this-device).
 
 ## Try it locally
 ```bash
@@ -31,7 +31,7 @@ npm test           # unit tests
 ```
 A production build is `npm run build`; to run one locally use `NITRO_PRESET=node-server npm run build` then `node .output/server/index.mjs`.
 
-A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`; the terminal shows the local address). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show. A later adult-only experiment in the same lab sends test recordings to cloud transcription services, run by hand with keys kept in a git-ignored local file; see [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md). The app itself sends nothing.
+A development-only experiment checks whether free on-device speech recognition could support future feedback (`npm run lab`; the terminal shows the local address). It is not part of the app, its production build or its navigation. See [docs/ai-feasibility.md](docs/ai-feasibility.md) for what it found and what that does and doesn't show. A later adult-only experiment in the same lab sends test recordings to cloud transcription services, run by hand with keys kept in a git-ignored local file; see [docs/ai-feedback-experiment.md](docs/ai-feedback-experiment.md). The app itself sends nothing unless optional AI feedback is connected and an adult asks for it.
 
 ## Documentation
 - [User flow and behaviour](docs/user-flow.md) — what each screen does and the rules behind it

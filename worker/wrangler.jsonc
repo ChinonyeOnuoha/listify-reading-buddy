@@ -1,0 +1,29 @@
+// Reading Buddy AI feedback Worker (Cloudflare Workers Free plan). Setup: docs/ai-feedback-setup.md.
+// The API key is NOT here: it is a Worker secret (`npx wrangler@4.151.2 secret put ASSEMBLYAI_API_KEY`).
+{
+  "name": "reading-buddy-ai-feedback",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // No request logging: the Worker handles people's recordings and must not keep traces of them.
+  "observability": { "enabled": false },
+  // Deletes any finished transcript the app didn't collect (someone closed the tab or stopped waiting).
+  "triggers": { "crons": ["*/10 * * * *"] },
+  "kv_namespaces": [
+    // Replace with the id printed by `npx wrangler@4.151.2 kv namespace create USAGE` (an id, not a secret).
+    { "binding": "USAGE", "id": "REPLACE_WITH_USAGE_KV_ID" },
+  ],
+  "vars": {
+    "PROVIDER": "assemblyai",
+    // EU servers: audio and transcripts are stored in the EU. Training use is still assumed (see TRAINING).
+    "ASSEMBLYAI_REGION": "eu",
+    // Keep "may-be-used" unless AssemblyAI confirms in writing that this account's EU recordings aren't used for training.
+    "TRAINING": "may-be-used",
+    // The published app's address, e.g. "https://your-app.lovable.app" (comma-separate several).
+    "ALLOWED_ORIGINS": "REPLACE_WITH_PUBLISHED_APP_ORIGIN",
+    // At most this much audio a day across everyone (60 min ≈ $0.21 of credit at most).
+    "DAILY_AUDIO_MINUTES": "60",
+    "MAX_RECORDING_MINUTES": "20",
+    // "false" pauses AI feedback for everyone; recording and playback carry on.
+    "ENABLED": "true",
+  },
+}

@@ -3,6 +3,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "tools/**/*.ts",
+    "worker/src/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "eslint.config.js"

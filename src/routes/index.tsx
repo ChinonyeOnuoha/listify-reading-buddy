@@ -1,4 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AiFeedback } from "@/components/app/AiFeedback";
+import { useAiFeedback } from "@/components/app/useAiFeedback";
+import { aiFeedbackConfigured } from "@/lib/ai-feedback/config";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { FolderClosed, Volume2, VolumeX } from "lucide-react";
 import { BookMark } from "@/components/reading/BookMark";
@@ -34,14 +37,16 @@ export const Route = createFileRoute("/")({
       { title: "Reading Buddy — practise reading aloud" },
       {
         name: "description",
-        content:
-          "Build a quiet reading nook, read aloud, record yourself and listen back. A children’s corner has picture stories. Everything stays on your device.",
+        content: aiFeedbackConfigured()
+          ? "Build a quiet reading nook, read aloud, record yourself and listen back. A children’s corner has picture stories. Everything stays on your device, unless an adult chooses optional AI feedback for a recording."
+          : "Build a quiet reading nook, read aloud, record yourself and listen back. A children’s corner has picture stories. Everything stays on your device.",
       },
       { property: "og:title", content: "Reading Buddy — practise reading aloud" },
       {
         property: "og:description",
-        content:
-          "Read aloud, record yourself and listen back, in a calm night-time reading nook. AI feedback is not connected yet.",
+        content: aiFeedbackConfigured()
+          ? "Read aloud, record yourself and listen back, in a calm night-time reading nook, with optional AI feedback for adults."
+          : "Read aloud, record yourself and listen back, in a calm night-time reading nook. AI feedback is not connected yet.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -65,7 +70,11 @@ function Index() {
   const [editing, setEditing] = useState(false);
   const [lampOn, setLampOn] = useState(false);
   const [kidLampOn, setKidLampOn] = useState(false);
-  const [preview, setPreview] = useState<{ cushion?: string; beanbag?: string; minutes?: number | null }>({});
+  const [preview, setPreview] = useState<{
+    cushion?: string;
+    beanbag?: string;
+    minutes?: number | null;
+  }>({});
   const [kidTab, setKidTab] = useState<"pick" | "own">("pick");
   const [filter, setFilter] = useState<"all" | StoryTheme>("all");
   const [lengthFilter, setLengthFilter] = useState<LengthFilter | null>(null);
@@ -84,6 +93,15 @@ function Index() {
   const child = useReadingSession("children", toReview);
   const kid = corner === "kid";
   const s = kid ? child : main;
+  // Optional AI feedback compares the main practice's recording with the words read: pasted text, or photographed
+  // pages that all have their words added. Never used in the children's corner.
+  const mainWords =
+    main.mode === "paste"
+      ? main.text.trim()
+      : main.mode === "upload" && main.pages.length && main.pages.every((p) => p.words?.trim())
+        ? main.pages.map((p) => p.words!.trim()).join(" ")
+        : "";
+  const ai = useAiFeedback(main.rec.take, mainWords || null);
 
   const say = (text: string, undo?: () => void, onExpire?: () => void) => {
     setToast((prev) => {
@@ -357,7 +375,9 @@ function Index() {
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              Saved on this device only. Nothing is uploaded.
+              {ai.configured
+                ? "Saved on this device. Nothing is uploaded unless you ask for AI feedback on a recording."
+                : "Saved on this device only. Nothing is uploaded."}
             </p>
             {!pwa.standalone && (
               <InstallButton
@@ -619,6 +639,7 @@ function Index() {
         onPosition={(t) => setReviewPos((p) => ({ ...p, main: t }))}
         onRecordAgain={() => go("read")}
         onBackToNook={() => go("ready")}
+        feedback={ai.configured ? <AiFeedback ai={ai} hasPassage={!!mainWords} /> : undefined}
         more={[
           { label: "See sample notes", onSelect: () => goSample(3) },
           {
