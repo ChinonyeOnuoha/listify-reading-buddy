@@ -500,6 +500,7 @@
 .rb-dialog {
   position: fixed; z-index: 41; left: 50%; top: 50%; translate: -50% -50%;
   width: min(440px, calc(100% - 2rem)); max-height: calc(100dvh - 3rem); overflow-y: auto; overscroll-behavior: contain;
+  --dlg-pb: 1.5rem;
   background: var(--panel); color: var(--cream); border-radius: 20px; padding: 1.5rem;
   display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
   animation: rb-pop 250ms var(--ease-out);
@@ -509,7 +510,8 @@
 @media (width < 56.25rem) {
   .rb-dialog {
     left: 0; right: 0; top: auto; bottom: 0; translate: none; width: 100%; max-height: 92dvh;
-    border-radius: 20px 20px 0 0; padding: 0.75rem 1.25rem max(1.75rem, env(safe-area-inset-bottom));
+    --dlg-pb: max(1.75rem, env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0; padding: 0.75rem 1.25rem var(--dlg-pb);
     animation: rb-up 500ms var(--ease-drawer);
   }
   .rb-dialog .rb-grab { display: block; align-self: center; width: 36px; height: 5px; border-radius: 3px; background: rgb(244 234 219 / 0.25); }
@@ -517,6 +519,16 @@
   .rb-dialog .rb-acts > * { width: 100%; }
 }
 .rb-acts { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+/* Long, sentence-like choices stack at every size, the main one on top. Buttons never overflow the dialog. */
+.rb-acts.is-stacked { flex-direction: column-reverse; }
+.rb-acts.is-stacked > * { width: 100%; white-space: normal; }
+.rb-acts > * { min-width: 0; }
+/* In a dialog, the actions stay pinned at the bottom while longer content scrolls above them. */
+.rb-dialog > .rb-acts {
+  position: sticky; bottom: calc(-1 * var(--dlg-pb)); z-index: 1;
+  margin: 0.5rem 0 calc(-1 * var(--dlg-pb)); padding: 0.75rem 0 var(--dlg-pb);
+  background: var(--panel); box-shadow: 0 -12px 16px -12px rgb(0 0 0 / 0.45);
+}
 
 .rb-menu {
   background: var(--raised); color: var(--cream); border: 0; border-radius: 14px; padding: 6px; min-width: 15rem;
@@ -527,7 +539,8 @@
 .rb-menu .rb-menu-danger { color: var(--rose); }
 .rb-menu .rb-menu-danger[data-highlighted] { color: var(--rose); }
 .rb-toast {
-  position: fixed; left: 50%; bottom: max(1.5rem, env(safe-area-inset-bottom)); z-index: 50; translate: -50% 0;
+  /* Below dialogs (z 40): a message never covers a decision. */
+  position: fixed; left: 50%; bottom: max(1.5rem, env(safe-area-inset-bottom)); z-index: 30; translate: -50% 0;
   width: max-content; max-width: calc(100% - 2rem);
   background: var(--cream); color: var(--panel); border-radius: 14px; padding: 0.375rem 0.375rem 0.375rem 1.125rem;
   display: flex; gap: 0.75rem; align-items: center; font-size: 0.9375rem; font-weight: 500;

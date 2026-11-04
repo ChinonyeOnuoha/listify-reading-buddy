@@ -59,8 +59,13 @@ describe("AI feedback choice", () => {
     fireEvent.click(screen.getByRole("button", { name: "About AI feedback" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep recordings on this device" }));
     expect(ai.choose).toHaveBeenCalledWith("device");
-    rerender(<Panel ai={fake({ choice: "device" })} hasPassage />);
-    expect(screen.getByText(/Off\. Your recordings stay on this device\./)).toBeInTheDocument();
+    const off = fake({ choice: "device" });
+    rerender(<Panel ai={off} hasPassage />);
+    expect(
+      screen.getByText(/AI feedback is off\. Your recordings stay on this device\./),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(off.changeChoice).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /Get AI feedback/ })).toBeNull();
   });
 
@@ -73,8 +78,8 @@ describe("AI feedback choice", () => {
     expect(ai.start).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Get AI feedback on this recording" }));
     expect(ai.start).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    expect(ai.changeChoice).toHaveBeenCalled();
+    // One action in the card: changing the choice lives in the review's ⋯ menu.
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
   });
 
   it("explains a pause when the credit runs out, and recording and playback carry on", () => {

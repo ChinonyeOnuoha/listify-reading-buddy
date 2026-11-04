@@ -49,8 +49,8 @@ Ginkgo `#D7E259`, Marigold `#EFA94A`, Clay `#C8664B`, Blossom `#E3A69A`, Plum `#
 - **Option** (minutes), **swatch** (colours), **chip** (story filters) and **segmented control** (Paste text / Photos of pages; Pick a story / Bring your own; Story / About this book).
 - **Primary** (amber), **secondary** (soft navy), **danger** (rose, in the one dialog that needs it), **link** (amber text) and **quiet** (Back) buttons.
 - **Summary list:** label, value and **Change** on each row.
-- **Dialogs** are a centred card on wide screens and a bottom sheet with a grab handle on narrow ones. Confirmations name the action, state the consequence in one sentence, repeat the verb on the button and give Cancel the focus. There are no warning boxes.
-- **Messages** (toasts): one at a time, with Undo where an action can be undone.
+- **Dialogs** are a centred card on wide screens and a bottom sheet with a grab handle on narrow ones. Their actions stay pinned at the bottom while longer content scrolls; long, sentence-like choices stack, the main one on top. Confirmations name the action, state the consequence in one sentence, repeat the verb on the button and give Cancel the focus. There are no warning boxes.
+- **Messages** (toasts): one at a time, with Undo where an action can be undone. They sit beneath dialogs, so they never cover a decision.
 - **⋯ More** menus hold everything that isn’t a screen’s main action.
 
 ## The nook

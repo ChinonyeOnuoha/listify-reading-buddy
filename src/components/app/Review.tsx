@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal, Pause, Play } from "lucide-react";
 import { CompanionPerchless } from "./Buddy";
-import { Modal, ScreenTitle } from "./ui";
+import { Modal, ScreenTitle, StepHead } from "./ui";
 import { formatTime, type AudioTake } from "@/components/reading/useRecorder";
 import {
   DropdownMenu,
@@ -134,7 +134,7 @@ export function MoreMenu({ items, label = "More options" }: { items: MoreItem[];
   );
 }
 
-/** Main practice: listen back. Record again is the main action; the rest is under ⋯. */
+/** Main practice: listen back. Record again is the main action; the rest is under ⋯, and Back is at the top. */
 export function AdultReview({
   take,
   target,
@@ -158,6 +158,7 @@ export function AdultReview({
   return (
     <>
       <div className="panel-body">
+        <StepHead onBack={onBackToNook} backLabel="Your nook" />
         <div className="flex items-end justify-between gap-4">
           <ScreenTitle>Have a listen back</ScreenTitle>
           <CompanionPerchless pose="celebrate" className="w-12 shrink-0" />
@@ -188,9 +189,6 @@ export function AdultReview({
           </button>
           <MoreMenu items={more} />
         </div>
-        <button type="button" className="btn-link w-full" onClick={onBackToNook}>
-          Back to your nook
-        </button>
       </div>
     </>
   );

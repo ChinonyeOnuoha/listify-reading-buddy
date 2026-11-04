@@ -26,6 +26,8 @@ const STILL_WORKS = "Recording and playback work as usual.";
 /**
  * Optional AI feedback on the main practice's review. Adults only: the children's corner never shows it.
  * Nothing is sent until the adult has chosen AI feedback (in the dialog) and then asks for it on a recording.
+ * Once it's on, the card holds one action at a time (get feedback, stop waiting, try again or show more); changing the
+ * choice lives in the review's ⋯ menu.
  */
 export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolean }) {
   const { status, choice, run, check } = ai;
@@ -48,7 +50,7 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
   return (
     <section
       aria-labelledby="ai-h"
-      className="flex flex-col gap-3 rounded-2xl bg-raised p-4 sm:p-5"
+      className="flex min-h-36 flex-col gap-3 rounded-2xl bg-raised p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="ai-h" className="text-lg font-semibold">
@@ -61,7 +63,10 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
 
       {!status ? (
         <p className="text-sm text-muted-foreground" role="status">
-          <Loader2 className="mr-1.5 -mt-0.5 inline size-4 animate-spin" aria-hidden />
+          <Loader2
+            className="mr-1.5 -mt-0.5 inline size-4 animate-spin motion-reduce:animate-none"
+            aria-hidden
+          />
           Checking AI feedback…
         </p>
       ) : choice === null ? (
@@ -81,7 +86,7 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
         </>
       ) : choice === "device" ? (
         <p className="text-sm text-muted-foreground">
-          Off. Your recordings stay on this device. {change}
+          AI feedback is off. Your recordings stay on this device. {change}
         </p>
       ) : (
         <>
@@ -96,7 +101,10 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
           ) : run.stage === "sending" || run.stage === "listening" || run.stage === "preparing" ? (
             <div className="flex flex-wrap items-center justify-between gap-2" role="status">
               <span>
-                <Loader2 className="mr-1.5 -mt-0.5 inline size-4 animate-spin" aria-hidden />
+                <Loader2
+                  className="mr-1.5 -mt-0.5 inline size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
                 {STAGE[run.stage]}
               </span>
               {run.stage !== "preparing" && (
@@ -135,9 +143,6 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
               </p>
             </>
           )}
-          <p className="text-sm text-muted-foreground">
-            On{mayTrain ? ", knowing AssemblyAI may use recordings for training" : ""}. {change}
-          </p>
         </>
       )}
 
@@ -193,7 +198,7 @@ export function AiFeedback({ ai, hasPassage }: { ai: AiState; hasPassage: boolea
             recording.
           </p>
         </div>
-        <div className="rb-acts">
+        <div className="rb-acts is-stacked">
           <button
             type="button"
             className="btn-secondary"
@@ -243,7 +248,7 @@ function Notes(p: {
               {STATUS_LABEL[i.status]}
               {i.at != null && ` · ${clock(i.at)}`}
             </span>
-            <p className="rounded-lg bg-night px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--amber)]">
+            <p className="rounded-lg bg-night px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--line)]">
               {i.words}
             </p>
             <p className="leading-normal">{i.observation}</p>

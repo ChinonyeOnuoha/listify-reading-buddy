@@ -44,7 +44,19 @@ On wide screens the recording controls are a card beside the reading; on narrow 
 The first time you start recording, a short explanation (“Buddy needs to hear you”) comes before the browser’s own microphone question. **← Nook** during a recording asks “Finish recording and go back?”; finishing keeps the recording. The logo and Saved ask the same.
 
 ### Listen back
-“Have a listen back” with how long you recorded against your minutes, a player (play, pause and a position slider) and **Record again** as the main action. **⋯** holds See sample notes, Start a new session and Delete recording. **Back to your nook** returns to the summary, which also offers “Listen to your last recording”. Deleting a recording, or starting a new session, is immediate and offers **Undo** for six seconds.
+“Have a listen back” with how long you recorded against your minutes, a player (play, pause and a position slider) and **Record again** as the main action. **⋯** holds See sample notes, Start a new session and Delete recording (and Change AI feedback choice once AI feedback is on). **← Your nook**, at the top, returns to the summary, which also offers “Listen to your last recording”. Deleting a recording, or starting a new session, is immediate and offers **Undo** for six seconds.
+
+### Optional AI feedback (adults, main practice only)
+A card under the player. Each state holds one action:
+- **Not chosen yet:** a sentence on what it does and **About AI feedback**, which opens the explanation: where the recording goes (only its audio, to AssemblyAI on its EU servers), that AssemblyAI may use it to train its models, that Reading Buddy asks for it to be deleted once the notes are ready, that speech recognition can mishear, and that the children’s corner never uses it. The adult confirms they’re 18 or over and reading in their own voice, then chooses **Use AI feedback, knowing this** or **Keep recordings on this device**. The two choices are stacked, the main one on top, and stay in view while the explanation scrolls.
+- **Off:** “AI feedback is off. Your recordings stay on this device.” with **Change**.
+- **On:** **Get AI feedback on this recording**, with one line saying where it goes. Nothing is sent until this is pressed.
+- **Working:** “Sending your recording…”, “Listening to your recording…”, then “Preparing your notes…”, with **Stop waiting** while it can still be stopped.
+- **Notes:** a reminder that speech recognition can mishear, then each moment with its kind (for example “Moment to review — not a mistake”), the time in the recording, the words and a plain observation. Anything beyond the first few is behind **Show n more**, never hidden. An optional idea for the next passage comes last.
+- **Paused or failed:** a plain reason (today’s limit, the free allowance used up, switched off, can’t be reached, too long, audio that couldn’t be used) and that recording and playback work as usual, with **Try again** where it can help.
+- **Needs the words:** AI feedback compares the reading with the words, so it asks for pasted text, or for the words to be added on every photographed page.
+
+The card keeps its height while it checks whether AI feedback is available, so the screen doesn’t jump.
 
 ## Children’s corner
 Three steps, then the lantern. Covered in full in [children-corner.md](children-corner.md).

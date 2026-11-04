@@ -288,6 +288,7 @@ describe("reading and recording", () => {
     click(/^finish$/i);
     await heading(/have a listen back/i);
     expect(btn(/record again/i).className).toContain("btn-primary");
+    expect(btn(/^your nook$/i)).toBeTruthy(); // Back sits at the top, not in the footer
     btn("More options").focus();
     fireEvent.keyDown(btn("More options"), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete recording" }));

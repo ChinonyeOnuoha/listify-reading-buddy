@@ -641,6 +641,9 @@ function Index() {
         onBackToNook={() => go("ready")}
         feedback={ai.configured ? <AiFeedback ai={ai} hasPassage={!!mainWords} /> : undefined}
         more={[
+          ...(ai.configured && ai.choice === "ai"
+            ? [{ label: "Change AI feedback choice", onSelect: ai.changeChoice }]
+            : []),
           { label: "See sample notes", onSelect: () => goSample(3) },
           {
             label: "Start a new session",

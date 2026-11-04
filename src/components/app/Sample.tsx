@@ -106,7 +106,7 @@ export function SamplePanel({
               </div>
               <h2 className="text-lg font-semibold">{ex.label}</h2>
               {ex.words && (
-                <p className="rounded-lg bg-night px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--amber)]">
+                <p className="rounded-lg bg-night px-3.5 py-2.5 shadow-[inset_3px_0_0_var(--line)]">
                   {ex.words}
                 </p>
               )}
