@@ -11,20 +11,30 @@ import {
   type Word,
 } from "./analysis.ts";
 
-export type Status = "difference" | "review" | "clear" | "unsure";
-export type Item = {
-  kind: string;
-  status: Status;
-  words: string;
-  at: number | null;
-  observation: string;
+/** One moment worth listening back to. `at` and `until` are seconds into the recording. */
+export type Moment = {
+  kind: "pause" | "skipped" | "repeated";
+  at: number;
+  until: number;
+  text: string;
 };
-export type Feedback = {
-  items: Item[];
+/** Words a minute in one part of the reading (pauses taken out); `changed` marks the part after a clear pace change. */
+export type PaceBin = { from: number; to: number; wpm: number; changed: boolean };
+/**
+ * Notes on one recording. Plain data, so they can be saved on the device with the recording and deleted with it.
+ * Only what can be measured fairly reliably is included: pace from word timings that pass the quality checks, pauses
+ * of 1.5 s or more inside a sentence, and skipped or repeated stretches of 3 or more words. Single words that differ
+ * from the passage are left out, because speech recognition often mishears them.
+ */
+export type Notes = {
+  version: 1;
+  /** Seconds, from the first to the last thing heard (for placing moments on the strip). */
+  duration: number;
+  pace: { summary: string; bins: PaceBin[]; changeAt: number | null };
+  moments: Moment[];
+  /** Said once, below the moments, when the recording stops before the passage does. */
+  endsEarly: string | null;
   tryNext: string | null;
-  notShown: number;
-  /** The items left out by the limit, in time order (the app offers them under “Show more”, never hides them silently). */
-  hidden: Item[];
 };
 
 type Timed = Word & { confidence?: number };
@@ -35,25 +45,24 @@ export type FeedbackInput = {
   /** Pauses measured from the audio, with neighbouring words placed from the word timings. */
   pauses: Pause[];
   quality: TimestampQuality;
+  /** Length of the recording in seconds. */
+  seconds?: number;
 };
 
 export const MIN_PAUSE_S = 1.5; // a silence shorter than this inside a sentence is not mentioned
 export const PACE_CHANGE = 0.25; // sentences after a point differ in pace by more than this from those before
 export const LOW_CONFIDENCE = 0.5; // a flagged word heard with less confidence is "couldn't assess", not a difference
-const MAX_ITEMS = 4;
+export const MIN_RUN = 3; // skipped or repeated stretches shorter than this aren't mentioned
+export const BIN_S = 20; // the pace chart shows words a minute every 20 seconds
 
-const TRY: Record<string, string> = {
-  repetition:
-    "On your next passage, you could try guiding your eyes with a finger or pen and notice how it feels.",
-  omission:
-    "On your next passage, you could try a quick silent skim first and see whether you like reading that way.",
-  addition:
-    "On your next passage, you could try a quick silent skim first and see whether you like reading that way.",
-  substitution:
-    "On your next passage, you could try a quick silent skim first and see whether you like reading that way.",
+const TRY: Record<Moment["kind"] | "pace", string> = {
+  skipped:
+    "On your next passage, you could guide your eyes with a finger or a pen, and see how it feels.",
+  repeated:
+    "On your next passage, you could guide your eyes with a finger or a pen, and see how it feels.",
   pause:
-    "If you're curious, lightly mark phrase groups in your next passage before reading it aloud.",
-  pace: "For a new passage, you could take one easy breath before each sentence and notice how it sounds.",
+    "On your next passage, you could lightly mark the phrases before reading it aloud, and see how it feels.",
+  pace: "On your next passage, you could take one easy breath before each sentence, and notice how it sounds.",
 };
 
 export const clock = (s: number) =>
@@ -157,107 +166,104 @@ export function paceChange(passage: string, ops: Op[], pauses: Pause[] = []) {
   };
 }
 
-export function buildFeedback({ passage, ops, words, pauses, quality }: FeedbackInput): Feedback {
+/** Words a minute every BIN_S seconds, from the first word to the last, with measured silences taken out. */
+export function paceBins(words: Word[], pauses: Pause[], changeAt: number | null): PaceBin[] {
+  const timed = words.filter((w) => w.start != null && w.end != null);
+  if (timed.length < 2) return [];
+  const first = timed[0]!.start!;
+  const last = Math.max(...timed.map((w) => w.end!));
+  const edges: number[] = [];
+  for (let t = first; t < last; t += BIN_S) edges.push(t);
+  // A last part shorter than a quarter of a bin joins the one before it.
+  if (edges.length > 1 && last - edges.at(-1)! < BIN_S / 4) edges.pop();
+  return edges.map((from, k) => {
+    const to = edges[k + 1] ?? last;
+    const n = timed.filter(
+      (w) => w.start! >= from && w.start! < (k === edges.length - 1 ? Infinity : to),
+    ).length;
+    const silent = pauses.reduce(
+      (a, p) => a + Math.max(0, Math.min(p.end, to) - Math.max(p.start, from)),
+      0,
+    );
+    const speaking = Math.max(1, to - from - silent);
+    return {
+      from,
+      to,
+      wpm: Math.round((n / speaking) * 60),
+      changed: changeAt != null && from + (to - from) / 2 >= changeAt,
+    };
+  });
+}
+
+const quote = (ws: string[]) =>
+  ws.length > 9 ? `${ws.slice(0, 4).join(" ")} … ${ws.slice(-3).join(" ")}` : ws.join(" ");
+
+export function buildFeedback({
+  passage,
+  ops,
+  words,
+  pauses,
+  quality,
+  seconds,
+}: FeedbackInput): Notes {
   const tok = tokens(passage);
-  const sent = sentenceOf(tok);
   const idx = refIndexes(ops);
-  const items: Item[] = [];
   const conf = (w: Word) => (w as Timed).confidence ?? 1;
-  // Words as the transcript has them (the alignment compares spelling-neutral keys, which aren't for display).
-  const flat = words.flatMap((w) => normalise(w.text));
-  const said = (o: { hi: number; hyp: Word }) => flat[o.hi] ?? o.hyp.text;
+  const timed = words.filter((w) => w.start != null && w.end != null);
+  const lastHeard = timed.length ? Math.max(...timed.map((w) => w.end!)) : 0;
+  const duration = Math.max(seconds ?? 0, lastHeard, 1);
+  const moments: Moment[] = [];
+  let endsEarly: string | null = null;
+  // When a stretch starts: the end of the last word heard before it.
+  const timeBefore = (k: number) => {
+    for (let q = k - 1; q >= 0; q--) {
+      const o = ops[q]!;
+      if (o.type !== "del" && o.hyp.end != null) return o.hyp.end;
+    }
+    return 0;
+  };
 
   for (let k = 0; k < ops.length; k++) {
     const op = ops[k]!;
-    if (op.type === "match") continue;
-    if (op.type === "ins") {
-      // Consecutive extra words form one observation.
+    if (op.type === "del") {
+      let e = k;
+      while (e + 1 < ops.length && ops[e + 1]!.type === "del") e++;
+      const from = idx[k]!,
+        to = idx[e]!;
+      const gone = tok.slice(from, to + 1).map(bare);
+      const names = gone.every((_, j) => isName(tok, from + j));
+      if (to === tok.length - 1 && gone.length >= MIN_RUN) {
+        endsEarly = `The recording ends before “${quote(gone.slice(0, 5))}”, so the rest of the passage wasn't checked.`;
+      } else if (gone.length >= MIN_RUN && !names) {
+        const at = op.near ?? timeBefore(k);
+        const next = ops.slice(e + 1).find((o) => o.type !== "del" && o.hyp.start != null);
+        const until = next && next.type !== "del" ? Math.max(at, next.hyp.start!) : at;
+        moments.push({
+          kind: "skipped",
+          at,
+          until,
+          text: `“${quote(gone)}”. ${gone.length >= 6 ? "A line may have been skipped." : "These words weren't heard."}`,
+        });
+      }
+      k = e;
+    } else if (op.type === "ins") {
       let e = k;
       while (e + 1 < ops.length && ops[e + 1]!.type === "ins") e++;
       const run = ops.slice(k, e + 1) as Extract<Op, { type: "ins" }>[];
-      const heard = run.map(said).join(" ");
-      const at = run[0]!.hyp.start;
-      const ctx = around(tok, idx[k]! - 1, idx[k]!);
-      if (run.some((o) => conf(o.hyp) < LOW_CONFIDENCE))
-        items.push({
-          kind: "unclear",
-          status: "unsure",
-          words: `“${ctx}”`,
-          at,
-          observation:
-            "Something extra may have been said near here, but it couldn't be heard clearly enough to say what, so it's left open rather than guessed.",
-        });
-      else if (run.every((o) => o.repeatOf))
-        items.push({
-          kind: "repetition",
-          status: "difference",
-          words: `“${ctx}”`,
-          at,
-          observation: `“${heard}” was heard twice in a row here.`,
-        });
-      else
-        items.push({
-          kind: "addition",
-          status: "difference",
-          words: `“${ctx}”`,
-          at,
-          observation: `“${heard}” was heard here, but it isn't in the text.`,
+      const heard = run.map((o) => o.hyp.text);
+      if (
+        heard.length >= MIN_RUN &&
+        run.every((o) => o.repeatOf) &&
+        run.every((o) => conf(o.hyp) >= LOW_CONFIDENCE) &&
+        run[0]!.hyp.start != null
+      )
+        moments.push({
+          kind: "repeated",
+          at: run[0]!.hyp.start,
+          until: run.at(-1)!.hyp.end ?? run[0]!.hyp.start,
+          text: `“${quote(heard)}” was heard twice in a row.`,
         });
       k = e;
-    } else if (op.type === "del") {
-      // Consecutive missing words form one observation.
-      let e = k;
-      while (e + 1 < ops.length && ops[e + 1]!.type === "del") e++;
-      if (tok.slice(idx[k]!, idx[e]! + 1).every((_, j) => isName(tok, idx[k]! + j))) {
-        k = e;
-        continue;
-      }
-      const gone = tok.slice(idx[k]!, idx[e]! + 1).map(bare);
-      if (idx[e]! === tok.length - 1 && gone.length > 8)
-        // The recording ends before the passage does: say so once, without listing the rest.
-        items.push({
-          kind: "stopped",
-          status: "unsure",
-          words: `From “${gone.slice(0, 4).join(" ")} …”`,
-          at: op.near,
-          observation: `The recording ends here, so the rest of the passage (${gone.length} words) wasn't checked.`,
-        });
-      else
-        items.push({
-          kind: "omission",
-          status: "difference",
-          words:
-            gone.length > 8
-              ? `“${gone.slice(0, 3).join(" ")} … ${gone.slice(-3).join(" ")}”`
-              : `“${around(tok, idx[k]!, idx[e]!)}”`,
-          at: op.near,
-          observation:
-            gone.length > 8
-              ? `These ${gone.length} words weren't heard here.`
-              : `“${gone.join(" ")}” wasn't heard here.`,
-        });
-      k = e;
-    } else if (isName(tok, idx[k]!)) {
-      continue;
-    } else {
-      const ctx = `Text: “${around(tok, idx[k]!)}” · Heard “${said(op)}” for “${bare(tok[idx[k]!]!)}”`;
-      if (conf(op.hyp) < LOW_CONFIDENCE)
-        items.push({
-          kind: "unclear",
-          status: "unsure",
-          words: ctx,
-          at: op.hyp.start,
-          observation: `The word here couldn't be heard clearly enough to say whether it was “${bare(tok[idx[k]!]!)}”, so it's left open rather than guessed.`,
-        });
-      else
-        items.push({
-          kind: "substitution",
-          status: "difference",
-          words: ctx,
-          at: op.hyp.start,
-          observation:
-            "The word heard here was different from the one on the page. Pronunciation and accent aren't compared — only which word was read.",
-        });
     }
   }
 
@@ -268,69 +274,66 @@ export function buildFeedback({ passage, ops, words, pauses, quality }: Feedback
     ops.forEach((op, k) => op.type !== "del" && hiToRef.set(op.hi, idx[k]!));
     for (const p of pauses) {
       if (p.duration < MIN_PAUSE_S) continue;
+      // A "silence" with words heard inside it is quiet speech, not a pause.
+      if (timed.some((w) => w.start! > p.start + 0.15 && w.start! < p.end - 0.15)) continue;
       // The last word that began before the silence (word end times can run into a pause).
       let hi = -1;
       words.forEach((w, i) => w.start != null && w.start < p.start && (hi = i));
       const ref = hiToRef.get(hi);
       if (hi < 0 || ref == null || /[,.;:!?]["”’]?$/.test(tok[ref] ?? ".")) continue;
-      const next = words[hi + 1];
-      if (!next) continue;
-      items.push({
+      if (!words[hi + 1]) continue;
+      const before = tok
+        .slice(Math.max(0, ref - 1), ref + 1)
+        .map(bare)
+        .join(" ");
+      const after = bare(tok[ref + 1] ?? words[hi + 1]!.text);
+      const secs = Math.round(p.duration);
+      moments.push({
         kind: "pause",
-        status: "review",
-        words: `“${bare(tok[ref]!)} … ${bare(tok[ref + 1] ?? next.text)}”`,
         at: p.start,
-        observation: `There was a pause of about ${p.duration.toFixed(1)} seconds inside this phrase. Pauses can be perfectly natural — this is just a moment you might like to listen back to.`,
+        until: p.end,
+        text: `About ${secs} ${secs === 1 ? "second" : "seconds"} in “${before} … ${after}”.`,
       });
     }
   }
+  moments.sort((a, b) => a.at - b.at);
 
-  // Pace only from word timings that pass the quality checks; otherwise say it couldn't be assessed.
-  if (quality.reliable) {
+  // Pace only from word timings that pass the quality checks; otherwise say so.
+  let pace: Notes["pace"];
+  if (quality.reliable && timed.length >= 10) {
     const { change } = paceChange(passage, ops, pauses);
-    if (change && sent.length)
-      items.push({
-        kind: "pace",
-        status: "review",
-        words: `From “${change.words} …”`,
-        at: change.at,
-        observation: `From here the reading was ${change.after > change.before ? "quicker" : "slower"} than before — about ${change.after} words a minute, compared with about ${change.before}. A pace change isn't automatically a problem; it's simply worth a listen.`,
-      });
+    const bins = paceBins(words, pauses, change?.at ?? null);
+    const steady = bins.length
+      ? Math.round(
+          bins.filter((b) => !b.changed).reduce((a, b) => a + b.wpm, 0) /
+            Math.max(1, bins.filter((b) => !b.changed).length) /
+            10,
+        ) * 10
+      : 0;
+    pace = {
+      bins: bins.length >= 3 ? bins : [],
+      changeAt: change?.at ?? null,
+      summary: change
+        ? `Steady at about ${Math.round(change.before / 10) * 10} words a minute, then ${
+            change.after > change.before ? "quicker" : "slower"
+          } from about ${clock(change.at)}.`
+        : `Steady all the way through, at about ${steady} words a minute.`,
+    };
   } else {
-    items.push({
-      kind: "pace",
-      status: "unsure",
-      words: "Whole reading",
-      at: null,
-      observation:
-        "Pace couldn't be assessed confidently from this recording, so it's left open rather than guessed.",
-    });
+    pace = {
+      bins: [],
+      changeAt: null,
+      summary: "Pace couldn't be measured reliably from this recording, so it's left out.",
+    };
   }
 
-  // Keep the most useful few (differences, then moments to review, then open questions), shown in time order.
-  const rank: Record<Status, number> = { difference: 0, review: 1, unsure: 2, clear: 3 };
-  const ranked = [...items].sort(
-    (a, b) => rank[a.status] - rank[b.status] || (a.at ?? Infinity) - (b.at ?? Infinity),
-  );
-  const byTime = (a: Item, b: Item) => (a.at ?? Infinity) - (b.at ?? Infinity);
-  const shown = ranked.slice(0, MAX_ITEMS).sort(byTime);
-  const found = shown.filter((i) => i.status === "difference" || i.status === "review");
-  if (!found.length) {
-    shown.unshift({
-      kind: "clear",
-      status: "clear",
-      words: "Checked: words (not names), repetitions, pauses" + (quality.reliable ? ", pace" : ""),
-      at: null,
-      observation: "Nice one for making time to read. Nothing stood out in the areas checked.",
-    });
-  }
-  // One small thing to try: from the first difference, else the first moment to review.
-  const lead =
-    shown.find((i) => i.status === "difference") ?? shown.find((i) => i.status === "review");
+  const lead = moments[0]?.kind ?? (pace.changeAt != null ? "pace" : null);
   return {
-    items: shown,
-    tryNext: lead ? (TRY[lead.kind] ?? null) : null,
-    notShown: items.length - Math.min(items.length, MAX_ITEMS),
-    hidden: ranked.slice(MAX_ITEMS).sort(byTime),
+    version: 1,
+    duration,
+    pace,
+    moments,
+    endsEarly,
+    tryNext: lead ? TRY[lead] : null,
   };
 }

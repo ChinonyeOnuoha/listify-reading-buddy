@@ -135,7 +135,9 @@ export function Recorder({ rec, target, kid, onStart, onListenBack }: Props) {
         : rec.micError
           ? "Allow the microphone in your browser, or upload a recording instead."
           : hasTake
-            ? "Recording again replaces this one when you finish."
+            ? rec.take?.notes && !kid
+              ? "Recording again replaces this one, and its AI notes, when you finish."
+              : "Recording again replaces this one when you finish."
             : kid
               ? "Press the button and read out loud."
               : "Only recorded time counts.");
@@ -249,10 +251,14 @@ export function Recorder({ rec, target, kid, onStart, onListenBack }: Props) {
           </span>
         </div>
         {target ? progress : null}
-        {(previewProblem || rec.problem || rec.micError) && (
+        {previewProblem || rec.problem || rec.micError ? (
           <p role="alert" className="text-sm">
             {hint}
           </p>
+        ) : (
+          s === "idle" &&
+          rec.take?.notes &&
+          !kid && <p className="text-sm text-muted-foreground">{hint}</p>
         )}
         <div className="flex gap-2">
           {sec && (

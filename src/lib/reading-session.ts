@@ -77,6 +77,7 @@ export function useReadingSession(key: StoreKey, onRecorded: () => void) {
             duration: s.recording.duration,
             source: s.recording.source,
             name: s.recording.name,
+            notes: s.recording.notes,
           });
       }
       setLoaded(true);
@@ -110,7 +111,13 @@ export function useReadingSession(key: StoreKey, onRecorded: () => void) {
           }
         }
         if (blob)
-          recording = { blob, duration: take.duration, source: take.source, name: take.name };
+          recording = {
+            blob,
+            duration: take.duration,
+            source: take.source,
+            name: take.name,
+            notes: take.notes,
+          };
       }
       await saveSession(key, {
         mode,

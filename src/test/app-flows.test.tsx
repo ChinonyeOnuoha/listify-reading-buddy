@@ -137,6 +137,34 @@ describe("home", () => {
 });
 
 describe("main practice setup", () => {
+  it("keeps the nook pinned during setup steps, but not while typing the passage or once set up", async () => {
+    renderApp();
+    await heading(/who’s reading today/i);
+    const root = () => document.querySelector("main")!.parentElement!;
+    expect(root().className).not.toContain("rb-pin");
+    click(/practise reading aloud/i);
+    await heading(/how long would you like to read/i);
+    expect(root().className).toContain("rb-pin");
+    radio("10 minutes");
+    click(/^continue$/i);
+    await heading(/what are you reading today/i);
+    const box = screen.getByLabelText("Your passage");
+    fireEvent.focus(box);
+    fireEvent.focusIn(box);
+    expect(root().className).not.toContain("rb-pin");
+    fireEvent.change(box, { target: { value: "A short passage." } });
+    fireEvent.focusOut(box);
+    expect(root().className).toContain("rb-pin");
+    click(/^continue$/i);
+    await heading(/get comfortable/i);
+    // Skip sits beside the main button on phones; the wide layout keeps it as a link below.
+    expect(btn(/^skip$/i)).toBeTruthy();
+    expect(btn(/skip for now/i)).toBeTruthy();
+    click(/^skip$/i);
+    await heading(/your nook is ready/i);
+    expect(root().className).not.toContain("rb-pin");
+  });
+
   it("Other minutes opens a real minutes field with steppers and a stated range", async () => {
     renderApp();
     await heading(/who’s reading today/i);
@@ -274,7 +302,7 @@ describe("reading and recording", () => {
     expect(within(d).getByRole("button", { name: "Keep reading" })).toBeTruthy();
     fireEvent.click(within(d).getByRole("button", { name: "Finish and go back" }));
     await heading(/your nook is ready/i);
-    expect(btn(/listen to your last recording/i)).toBeTruthy();
+    expect(btn(/your last recording, .*listen back/i)).toBeTruthy();
   });
 
   it("review has one main action; deleting a recording offers Undo and Undo puts it back", async () => {
@@ -296,7 +324,7 @@ describe("reading and recording", () => {
     fireEvent.click(within(status.parentElement!).getByRole("button", { name: "Undo" }));
     click(/^nook$/i);
     await heading(/your nook is ready/i);
-    expect(btn(/listen to your last recording/i)).toBeTruthy();
+    expect(btn(/your last recording, .*listen back/i)).toBeTruthy();
   });
 });
 
@@ -413,9 +441,9 @@ describe("saved on this device", () => {
     await setUpMain();
     click("Saved on this device");
     await heading(/saved on this device/i);
-    click(/delete all readings and recordings/i);
+    click(/delete all readings, recordings and notes/i);
     const d = await screen.findByRole("alertdialog", {
-      name: /delete all readings and recordings/i,
+      name: /delete all readings, recordings and notes/i,
     });
     expect(d.textContent).toMatch(/can’t be undone/);
     expect(d.querySelector("[role=alert], .border")).toBeNull(); // no warning box inside the dialog

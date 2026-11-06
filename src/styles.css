@@ -162,6 +162,16 @@
   & > * { flex-shrink: 0; }
   @media (width >= 56.25rem) { position: static; box-shadow: none; padding: 1rem 2rem 2rem; }
 }
+/* Setup on phones: the nook stays pinned under the header at full size and only the step scrolls beneath it, with its
+   main button at the bottom. Only on screens tall enough for the nook and a step (not phones held sideways). */
+@media (width < 56.25rem) and (height >= 37.5rem) {
+  .rb-pin { height: 100dvh; overflow: hidden; }
+  .rb-pin > main { padding-bottom: 0; }
+  .rb-pin .panel { flex: 1; min-height: 0; border-radius: 20px 20px 0 0; }
+  .rb-pin .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: 1rem; }
+  .rb-pin .panel-foot { position: static; border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .rb-pin .rb-scene { box-shadow: 0 10px 14px -8px rgb(5 9 20 / 0.9); z-index: 1; }
+}
 /* Older components still use the card surface. */
 @utility card {
   background: var(--panel);
@@ -382,6 +392,19 @@
   &[aria-checked="true"] small { color: var(--amber-ink); }
 }
 /* Colour swatches with their names: fixed size, four to a row on desktop and phones. */
+/* Swatches as one row to swipe sideways (the smallest phones), with a fade at the edge to show there are more. */
+@utility swatch-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  margin-inline: -1.25rem;
+  padding: 0.25rem 1.25rem 0.5rem;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 1.25rem;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 2.5rem), transparent);
+  & > * { flex: none; width: 4rem; scroll-snap-align: start; }
+}
 @utility swatch {
   display: flex;
   flex-direction: column;

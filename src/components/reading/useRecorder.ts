@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type AudioTake = { url: string; duration: number; source: "recording" | "upload"; name?: string | undefined };
+import type { Notes } from "@/lib/reading-feedback/feedback";
+
+/** A finished recording. `notes` are AI feedback notes made for this recording; they go wherever it goes. */
+export type AudioTake = {
+  url: string;
+  duration: number;
+  source: "recording" | "upload";
+  name?: string | undefined;
+  notes?: Notes | undefined;
+};
 export type RecState = "idle" | "starting" | "recording" | "paused" | "finishing";
 
 export function formatTime(s: number) {
@@ -370,6 +379,11 @@ export function useRecorder(onComplete: () => void) {
     return out;
   }, []);
 
+  /** Keep AI feedback notes with the recording they were made for (ignored if that recording has since been replaced). */
+  const attachNotes = useCallback((url: string, notes: Notes | undefined) => {
+    setTake((t) => (t && t.url === url ? { ...t, notes } : t));
+  }, []);
+
   /** Discard everything: drop any unfinished recording, release the mic, ignore late callbacks. */
   const discard = useCallback(() => {
     generation.current += 1;
@@ -407,5 +421,6 @@ export function useRecorder(onComplete: () => void) {
     discard,
     restore,
     detach,
+    attachNotes,
   };
 }

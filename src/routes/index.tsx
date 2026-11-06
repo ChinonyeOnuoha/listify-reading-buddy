@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AiFeedback } from "@/components/app/AiFeedback";
+import { AiFeedback, TurnOnPanel } from "@/components/app/AiFeedback";
 import { useAiFeedback } from "@/components/app/useAiFeedback";
 import { aiFeedbackConfigured } from "@/lib/ai-feedback/config";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -57,7 +57,11 @@ export const Route = createFileRoute("/")({
 
 type Corner = "home" | "adult" | "kid" | "sample" | "saved";
 type Screen = "time" | "bring" | "cushion" | "stories" | "ready" | "read" | "review";
-type Pending = { kind: "leave"; then: () => void } | { kind: "deleteAll" } | { kind: "forget" };
+type Pending =
+  | { kind: "leave"; then: () => void }
+  | { kind: "deleteAll" }
+  | { kind: "forget" }
+  | { kind: "deleteNotes" };
 
 const pauseAllAudio = () => document.querySelectorAll("audio").forEach((a) => a.pause());
 /** WAV at 16 kHz, 16-bit mono: about 32 KB a second. Used to size a recording in Saved. */
@@ -86,6 +90,24 @@ function Index() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [micFor, setMicFor] = useState<ReadingSession | null>(null);
+  const [aiPage, setAiPage] = useState(false);
+  // Typing a passage on a phone: the keyboard takes half the screen, so the nook stops being pinned meanwhile.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const on = (e: FocusEvent) => {
+      const box = e.target instanceof HTMLTextAreaElement ? e.target : null;
+      setTyping(!!box);
+      // Unpinning moves the text box in the page; keep it in view.
+      if (box) window.setTimeout(() => box.scrollIntoView?.({ block: "nearest" }), 50);
+    };
+    const off = () => setTyping(false);
+    document.addEventListener("focusin", on);
+    document.addEventListener("focusout", off);
+    return () => {
+      document.removeEventListener("focusin", on);
+      document.removeEventListener("focusout", off);
+    };
+  }, []);
   const pwa = usePwa();
 
   const toReview = useCallback(() => setScreen("review"), []);
@@ -101,7 +123,7 @@ function Index() {
       : main.mode === "upload" && main.pages.length && main.pages.every((p) => p.words?.trim())
         ? main.pages.map((p) => p.words!.trim()).join(" ")
         : "";
-  const ai = useAiFeedback(main.rec.take, mainWords || null);
+  const ai = useAiFeedback(main.rec.take, mainWords || null, main.rec.attachNotes);
 
   const say = (text: string, undo?: () => void, onExpire?: () => void) => {
     setToast((prev) => {
@@ -131,6 +153,7 @@ function Index() {
   const go = (to: Screen, opts: { editing?: boolean } = {}) => {
     setEditing(!!opts.editing);
     setPreview({});
+    setAiPage(false);
     setScreen(to);
   };
   const resolveAdult = () => {
@@ -214,7 +237,7 @@ function Index() {
   // Screens start at the top on narrow layouts, where the page itself scrolls.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [corner, screen, sample.step]);
+  }, [corner, screen, sample.step, aiPage]);
 
   // The first time something is saved, say where it lives.
   const hadTake = useRef({ main: false, children: false });
@@ -242,6 +265,8 @@ function Index() {
     );
   };
   const deleteRecording = (x: ReadingSession) => {
+    // A recording with AI notes asks first: its notes go too, and that can't be undone.
+    if (x.rec.take?.notes) return setPending({ kind: "deleteNotes" });
     const take = x.rec.detach();
     if (!take) return;
     go("read");
@@ -285,6 +310,13 @@ function Index() {
       setSample({ step, note: 0 });
     });
   const goSaved = () => guard(() => enter("saved", () => {}));
+  // From Saved: open a reading's listen-back screen in its own corner.
+  const openReview = (c: "adult" | "kid") =>
+    enter(c, () => {
+      if (c === "adult") setLampOn(true);
+      else setKidLampOn(true);
+      go("review");
+    });
 
   // Choosing a different story (or own content) puts the kept recording aside, with Undo.
   const beginKid = (source: { kind: "story"; slug: string } | { kind: "own" }) => {
@@ -417,6 +449,7 @@ function Index() {
         where,
         x.rec.take ? `recording ${formatTime(x.rec.take.duration)}` : "no recording yet",
       ];
+      if (x.rec.take?.notes) parts.push("AI notes");
       if (bytes) parts.push(formatBytes(bytes));
       items.push({
         id: x.key,
@@ -424,6 +457,7 @@ function Index() {
         detail: parts.join(" · "),
         bytes,
         onDelete: () => deleteSessionWithUndo(x, `“${title}”`),
+        onOpen: x.rec.take ? () => openReview(x === child ? "kid" : "adult") : undefined,
       });
     }
     const nookBits = [
@@ -589,13 +623,25 @@ function Index() {
         rows={rows}
         readLabel={kid ? "Open the story" : "Sit down and read"}
         onRead={() => go("read")}
-        extra={
-          s.rec.take ? (
-            <button type="button" className="btn-link self-start px-0" onClick={() => go("review")}>
-              Listen to your last recording ({formatTime(s.rec.take.duration)})
-            </button>
-          ) : undefined
+        lastRecording={
+          s.rec.take
+            ? {
+                detail: `${formatTime(s.rec.take.duration)}${s.rec.take.notes && !kid ? " · with notes" : ""}`,
+                onOpen: () => go("review"),
+              }
+            : undefined
         }
+      />
+    );
+  } else if (screen === "review" && !kid && aiPage) {
+    panel = (
+      <TurnOnPanel
+        ai={ai}
+        onBack={() => setAiPage(false)}
+        onDone={(on) => {
+          setAiPage(false);
+          say(on ? "AI feedback is on." : "AI feedback is off.");
+        }}
       />
     );
   } else if (screen === "review") {
@@ -640,11 +686,21 @@ function Index() {
         onPosition={(t) => setReviewPos((p) => ({ ...p, main: t }))}
         onRecordAgain={() => go("read")}
         onBackToNook={() => go("ready")}
-        feedback={ai.configured ? <AiFeedback ai={ai} hasPassage={!!mainWords} /> : undefined}
+        feedback={
+          ai.configured
+            ? (playFrom) => (
+                <AiFeedback
+                  ai={ai}
+                  notes={main.rec.take?.notes ?? null}
+                  hasPassage={!!mainWords}
+                  onTurnOn={() => setAiPage(true)}
+                  onPlayFrom={playFrom}
+                  onTurnedOff={() => say("AI feedback is off.")}
+                />
+              )
+            : undefined
+        }
         more={[
-          ...(ai.configured && ai.choice === "ai"
-            ? [{ label: "Change AI feedback choice", onSelect: ai.changeChoice }]
-            : []),
           { label: "See sample notes", onSelect: () => goSample(3) },
           {
             label: "Start a new session",
@@ -661,6 +717,10 @@ function Index() {
 
   // ---- Reading screen ------------------------------------------------------------------------------------------------
   const reading = (corner === "adult" || corner === "kid") && screen === "read";
+  // During setup steps the nook stays in view on phones (see .rb-pin).
+  const pinned =
+    (corner === "adult" || corner === "kid") &&
+    (screen === "time" || screen === "bring" || screen === "cushion" || screen === "stories");
   let reader: ReactNode = null;
   if (reading) {
     const size = kid ? textSize.children : textSize.main;
@@ -751,7 +811,11 @@ function Index() {
           : "";
 
   return (
-    <div className="flex min-h-dvh flex-col wide:h-dvh wide:overflow-hidden">
+    <div
+      className={`flex min-h-dvh flex-col wide:h-dvh wide:overflow-hidden ${
+        pinned && !typing ? "rb-pin" : ""
+      }`}
+    >
       <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4 wide:static wide:px-6">
         <button
           type="button"
@@ -820,11 +884,7 @@ function Index() {
           reader
         ) : (
           <>
-            <div
-              className={`relative shrink-0 overflow-hidden rounded-[20px] bg-[#1C2541] ${
-                "h-[min(75vw,440px)]"
-              } wide:h-auto wide:min-w-0 wide:flex-1`}
-            >
+            <div className="rb-scene relative h-[min(75vw,440px)] shrink-0 overflow-hidden rounded-[20px] bg-[#1C2541] wide:h-auto wide:min-w-0 wide:flex-1">
               {scene}
             </div>
             <section
@@ -850,6 +910,21 @@ function Index() {
         cancelLabel="Keep reading"
       />
       <Confirm
+        open={pending?.kind === "deleteNotes"}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          const take = main.rec.detach();
+          if (take) URL.revokeObjectURL(take.url);
+          setPending(null);
+          go("read");
+          say("Recording and notes deleted.");
+        }}
+        danger
+        title="Delete this recording?"
+        body={<p>Its AI notes will be deleted too. This can’t be undone.</p>}
+        confirmLabel="Delete recording and notes"
+      />
+      <Confirm
         open={pending?.kind === "deleteAll"}
         onCancel={() => setPending(null)}
         onConfirm={() => {
@@ -859,10 +934,10 @@ function Index() {
           }
           setFeeling(null);
           setPending(null);
-          say("All readings and recordings deleted.");
+          say("All readings, recordings and notes deleted.");
         }}
         danger
-        title="Delete all readings and recordings?"
+        title="Delete all readings, recordings and notes?"
         body={
           <p>
             Everything saved on this device will be removed, from both the main practice and the

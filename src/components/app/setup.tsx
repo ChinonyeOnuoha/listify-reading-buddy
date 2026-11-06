@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronRight, Minus, Plus } from "lucide-react";
+import { ChevronRight, Minus, Play, Plus } from "lucide-react";
 import { CompanionPerchless } from "./Buddy";
 import { ScreenTitle, StepHead } from "./ui";
 import { COLOURS } from "@/lib/nook-memory";
@@ -252,7 +252,8 @@ export function ColourStep({
         <div
           role="radiogroup"
           aria-label={kid ? "Beanbag colour" : "Cushion colour"}
-          className="grid grid-cols-[repeat(4,4rem)] gap-x-4 gap-y-5 min-[600px]:max-wide:grid-cols-[repeat(8,4rem)]"
+          // Four across; eight across on wider phones and tablets; one row to swipe on the smallest phones.
+          className="grid grid-cols-[repeat(4,4rem)] gap-x-4 gap-y-5 max-[379px]:swatch-row min-[600px]:max-wide:grid-cols-[repeat(8,4rem)]"
         >
           {COLOURS.map((c) => (
             <button
@@ -273,19 +274,31 @@ export function ColourStep({
         </div>
       </div>
       <div className="panel-foot">
-        <button
-          type="button"
-          className="btn-primary w-full"
-          disabled={!picked}
-          onClick={() => picked && onSave(picked)}
-        >
-          {editing ? "Save" : kid ? "Next: pick a story" : "Switch on the lamp"}
-        </button>
-        {onSkip && !editing && (
-          <button type="button" className="btn-link w-full" onClick={onSkip}>
-            Skip for now
+        {/* On phones Skip sits beside the main button, so the step needs less height under the nook. */}
+        <div className="flex gap-2 wide:flex-col">
+          {onSkip && !editing && (
+            <button type="button" className="btn-secondary px-4 wide:hidden" onClick={onSkip}>
+              Skip
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-primary min-w-0 flex-1 wide:w-full"
+            disabled={!picked}
+            onClick={() => picked && onSave(picked)}
+          >
+            {editing ? "Save" : kid ? "Next: pick a story" : "Switch on the lamp"}
           </button>
-        )}
+          {onSkip && !editing && (
+            <button
+              type="button"
+              className="btn-link hidden w-full wide:inline-flex"
+              onClick={onSkip}
+            >
+              Skip for now
+            </button>
+          )}
+        </div>
       </div>
     </>
   );
@@ -301,14 +314,15 @@ export function ReadyPanel({
   rows,
   readLabel,
   onRead,
-  extra,
+  lastRecording,
 }: {
   kid: boolean;
   lampOn: boolean;
   rows: SummaryRow[];
   readLabel: string;
   onRead: () => void;
-  extra?: ReactNode;
+  /** The recording kept from last time, which opens its listen-back screen (and its notes). */
+  lastRecording?: { detail: string; onOpen: () => void } | undefined;
 }) {
   const light = kid ? "lantern" : "lamp";
   return (
@@ -339,7 +353,28 @@ export function ReadyPanel({
             </li>
           ))}
         </ul>
-        {extra}
+        {lastRecording && (
+          <button
+            type="button"
+            className="grid min-h-16 grid-cols-[2.75rem_minmax(0,1fr)_1.25rem] items-center gap-3 rounded-2xl bg-raised px-3.5 py-2.5 text-left transition-colors hover:bg-selected"
+            aria-label={`Your last recording, ${lastRecording.detail.replace(" · ", ", ")}. Listen back`}
+            onClick={lastRecording.onOpen}
+          >
+            <span
+              className="grid size-11 place-items-center rounded-full bg-soft text-primary"
+              aria-hidden
+            >
+              <Play className="ml-0.5 size-4 fill-current" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold">Your last recording</span>
+              <span className="block text-sm text-muted-foreground tabular-nums">
+                {lastRecording.detail}
+              </span>
+            </span>
+            <ChevronRight className="size-[18px] text-muted-foreground" aria-hidden />
+          </button>
+        )}
       </div>
       <div className="panel-foot">
         <button type="button" className="btn-primary w-full" onClick={onRead}>

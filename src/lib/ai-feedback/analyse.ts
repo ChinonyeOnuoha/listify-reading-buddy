@@ -7,7 +7,7 @@ import {
   placePauses,
   timestampQuality,
 } from "@/lib/reading-feedback/analysis";
-import { buildFeedback, type Feedback } from "@/lib/reading-feedback/feedback";
+import { buildFeedback, type Notes } from "@/lib/reading-feedback/feedback";
 import type { TimedWord } from "./client";
 
 export function prepareFeedback(
@@ -15,7 +15,7 @@ export function prepareFeedback(
   words: TimedWord[],
   audio: Float32Array,
   rate: number,
-): Feedback {
+): Notes {
   const pauses = mergePauses(findPauses(audio, rate, 0.3).pauses);
   return buildFeedback({
     passage,
@@ -23,5 +23,6 @@ export function prepareFeedback(
     words,
     pauses: placePauses(pauses, words),
     quality: timestampQuality(words),
+    seconds: audio.length / rate,
   });
 }

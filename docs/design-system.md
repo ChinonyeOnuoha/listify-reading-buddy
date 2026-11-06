@@ -49,6 +49,8 @@ Ginkgo `#D7E259`, Marigold `#EFA94A`, Clay `#C8664B`, Blossom `#E3A69A`, Plum `#
 - **Option** (minutes), **swatch** (colours), **chip** (story filters) and **segmented control** (Paste text / Photos of pages; Pick a story / Bring your own; Story / About this book).
 - **Primary** (amber), **secondary** (soft navy), **danger** (rose, in the one dialog that needs it), **link** (amber text) and **quiet** (Back) buttons.
 - **Summary list:** label, value and **Change** on each row.
+- **Quiet row:** a whole-row button in the surface’s supporting text colour with a chevron on the right, for a setting stated as a fact (“AI feedback is on”). No accent colour.
+- **AI feedback notes:** one column with a rule between sections. Pace is a bar chart (bars in `--line`, the part after a clear change in amber); moments are marks on a strip of the recording (pause: a thin amber bar; words not heard: a cream pill; repeated: a cream outline) with a legend, then a list with a round Play from button for each.
 - **Dialogs** are a centred card on wide screens and a bottom sheet with a grab handle on narrow ones. Their actions stay pinned at the bottom while longer content scrolls; long, sentence-like choices stack, the main one on top. Confirmations name the action, state the consequence in one sentence, repeat the verb on the button and give Cancel the focus. There are no warning boxes.
 - **Messages** (toasts): one at a time, with Undo where an action can be undone. They sit beneath dialogs, so they never cover a decision.
 - **⋯ More** menus hold everything that isn’t a screen’s main action.
@@ -68,4 +70,4 @@ Ginkgo `#D7E259`, Marigold `#EFA94A`, Clay `#C8664B`, Blossom `#E3A69A`, Plum `#
 
 ## Layout
 - **Wide (900 px and up):** header, then the nook and the panel side by side at full height (panel 440 px, or 560 px for stories, the sample and Saved). Reading: the reading area and the recording card side by side.
-- **Narrow:** the header stays at the top, the nook sits above the panel, and the panel’s main button stays in view at the bottom. Reading: the toolbar stays under the header and the recording dock stays at the bottom.
+- **Narrow:** the header stays at the top, the nook sits above the panel, and the panel’s main button stays in view at the bottom. During setup steps on screens 600 px or taller, the nook stays pinned at full size and only the step scrolls beneath it (`.rb-pin`), with a soft shadow under the nook; Back and the step label share one row, Skip sits beside the main button, and below 380 px the swatches become one row to swipe. Reading: the toolbar stays under the header and the recording dock stays at the bottom.

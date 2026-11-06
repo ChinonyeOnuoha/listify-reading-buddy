@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import { formatBytes, storageEstimate } from "@/lib/device-store";
 import { ScreenTitle, StepHead } from "./ui";
 
@@ -9,6 +9,8 @@ export type SavedItem = {
   detail: string;
   bytes: number;
   onDelete: () => void;
+  /** Opens the reading's listen-back screen, when it has a recording. */
+  onOpen?: (() => void) | undefined;
 };
 
 /** What is kept on this device, how much room it takes, and the controls to delete it or forget the nook. */
@@ -65,10 +67,28 @@ export function SavedPanel({
                 key={i.id}
                 className="flex min-h-16 items-center justify-between gap-3 border-b border-border py-1 last:border-0"
               >
-                <span className="min-w-0">
-                  <span className="block font-semibold">{i.title}</span>
-                  <span className="block text-sm text-muted-foreground">{i.detail}</span>
-                </span>
+                {i.onOpen ? (
+                  <button
+                    type="button"
+                    className="-ml-2 flex min-h-14 min-w-0 flex-1 items-center gap-2 rounded-[10px] px-2 text-left hover:bg-raised"
+                    onClick={i.onOpen}
+                    aria-label={`${i.title}. ${i.detail}. Listen back`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold break-words">{i.title}</span>
+                      <span className="block text-sm text-muted-foreground">{i.detail}</span>
+                    </span>
+                    <ChevronRight
+                      className="size-[18px] shrink-0 text-muted-foreground"
+                      aria-hidden
+                    />
+                  </button>
+                ) : (
+                  <span className="min-w-0">
+                    <span className="block font-semibold break-words">{i.title}</span>
+                    <span className="block text-sm text-muted-foreground">{i.detail}</span>
+                  </span>
+                )}
                 <button
                   type="button"
                   className="btn-icon shrink-0"
@@ -92,8 +112,12 @@ export function SavedPanel({
       </div>
       <div className="panel-foot">
         {items.length > 0 && (
-          <button type="button" className="btn-link is-rose w-full" onClick={onDeleteAll}>
-            Delete all readings and recordings
+          <button
+            type="button"
+            className="btn-link is-rose h-auto w-full py-2 text-center leading-snug whitespace-normal"
+            onClick={onDeleteAll}
+          >
+            Delete all readings, recordings and notes
           </button>
         )}
         {hasNook && (

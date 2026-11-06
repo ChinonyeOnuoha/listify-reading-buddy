@@ -5,6 +5,8 @@
  * lasts for this visit only.
  */
 
+import type { Notes } from "@/lib/reading-feedback/feedback";
+
 export type StoreKey = "main" | "children";
 
 export type StoredPage = { id: string; name: string; blob: Blob; words?: string | undefined };
@@ -13,6 +15,8 @@ export type StoredRecording = {
   duration: number;
   source: "recording" | "upload";
   name?: string | undefined;
+  /** AI feedback notes made for this recording, kept and deleted with it. */
+  notes?: Notes | undefined;
 };
 export type StoredSession = {
   mode: "paste" | "upload" | null;

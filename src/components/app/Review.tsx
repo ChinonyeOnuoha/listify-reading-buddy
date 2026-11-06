@@ -45,7 +45,7 @@ export function Player({
     }
   };
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex scroll-mt-20 flex-col gap-2">
       <div className="flex items-center gap-4 rounded-2xl bg-raised p-4">
         <button
           type="button"
@@ -152,9 +152,20 @@ export function AdultReview({
   onRecordAgain: () => void;
   onBackToNook: () => void;
   more: MoreItem[];
-  /** Optional AI feedback (main practice only), when it's connected. */
-  feedback?: ReactNode;
+  /** Optional AI feedback (main practice only), when it's connected. Given a way to play from a moment. */
+  feedback?: ((playFrom: (t: number) => void) => ReactNode) | undefined;
 }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playFrom = (t: number) => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = t;
+    onPosition(t);
+    void a.play().catch(() => {});
+    // Bring the player into view, so the position can be seen moving (never scrolls on its own otherwise).
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    a.parentElement?.scrollIntoView?.({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  };
   return (
     <>
       <div className="panel-body">
@@ -170,11 +181,19 @@ export function AdultReview({
               : `You recorded ${formatTime(take.duration)}${target ? ` of your ${target} minutes` : ""}.`
             : "No recording yet. Head back to read when you’re ready."}
         </p>
-        {take && <Player key={take.url} take={take} startAt={startAt} onPosition={onPosition} />}
+        {take && (
+          <Player
+            key={take.url}
+            take={take}
+            startAt={startAt}
+            onPosition={onPosition}
+            audioRef={audioRef}
+          />
+        )}
         {feedback ? (
           <>
             <p className="text-sm text-muted-foreground">Saved on this device.</p>
-            {take && feedback}
+            {take && feedback(playFrom)}
           </>
         ) : (
           <p className="text-sm text-muted-foreground">

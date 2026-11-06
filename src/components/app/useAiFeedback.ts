@@ -1,25 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prepareFeedback } from "@/lib/ai-feedback/analyse";
-import { forgetChoice, loadChoice, saveChoice, type Choice } from "@/lib/ai-feedback/choice";
+import { loadChoice, saveChoice, type Choice } from "@/lib/ai-feedback/choice";
 import { FeedbackError, fetchStatus, transcribe, type Status } from "@/lib/ai-feedback/client";
 import { aiFeedbackConfigured } from "@/lib/ai-feedback/config";
 import { decodeTo16k } from "@/lib/reading-feedback/analysis";
-import type { Feedback } from "@/lib/reading-feedback/feedback";
+import type { Notes } from "@/lib/reading-feedback/feedback";
 import type { AudioTake } from "@/components/reading/useRecorder";
 
 export type Run =
   | { stage: "idle" }
   | { stage: "sending" | "listening" | "preparing" }
-  | { stage: "done"; feedback: Feedback }
   | { stage: "error"; reason: FeedbackError["reason"] };
 
 export type AiFeedback = ReturnType<typeof useAiFeedback>;
 
 /**
  * Adults' optional AI feedback for the main session's recording (never the children's corner). Nothing is sent until
- * the adult has chosen AI feedback and then asks for it on a recording; the result is kept for that recording only.
+ * the adult has turned AI feedback on and then asks for it on a recording. The notes are handed to `keep`, which saves
+ * them with that recording, so they stay (even after AI feedback is turned off) until the recording is deleted.
  */
-export function useAiFeedback(take: AudioTake | null, passage: string | null) {
+export function useAiFeedback(
+  take: AudioTake | null,
+  passage: string | null,
+  keep: (url: string, notes: Notes) => void,
+) {
   const configured = aiFeedbackConfigured();
   const [status, setStatus] = useState<Status | null>(null);
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -51,11 +55,10 @@ export function useAiFeedback(take: AudioTake | null, passage: string | null) {
     },
     [status],
   );
-  const changeChoice = useCallback(() => {
+  const turnOff = useCallback(() => {
     cancel();
-    forgetChoice();
-    setChoice(null);
-  }, [cancel]);
+    choose("device");
+  }, [cancel, choose]);
 
   const start = useCallback(async () => {
     if (!take || !passage || choice !== "ai" || !status?.available) return;
@@ -77,8 +80,10 @@ export function useAiFeedback(take: AudioTake | null, passage: string | null) {
       });
       if (ctl.signal.aborted) return;
       setRun({ stage: "preparing" });
-      const feedback = prepareFeedback(passage, words, decoded.audio, 16000);
-      if (!ctl.signal.aborted) setRun({ stage: "done", feedback });
+      const notes = prepareFeedback(passage, words, decoded.audio, 16000);
+      if (ctl.signal.aborted) return;
+      keep(take.url, notes);
+      setRun({ stage: "idle" });
     } catch (e) {
       if (ctl.signal.aborted) return;
       const reason = e instanceof FeedbackError ? e.reason : "unavailable";
@@ -89,7 +94,7 @@ export function useAiFeedback(take: AudioTake | null, passage: string | null) {
     } finally {
       if (abort.current === ctl) abort.current = null;
     }
-  }, [take, passage, choice, status]);
+  }, [take, passage, choice, status, keep]);
 
-  return { configured, status, choice, run, check, choose, changeChoice, start, cancel };
+  return { configured, status, choice, run, check, choose, turnOff, start, cancel };
 }

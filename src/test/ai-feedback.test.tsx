@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AiFeedback as Panel } from "@/components/app/AiFeedback";
+import { AiFeedback as Panel, TurnOnPanel } from "@/components/app/AiFeedback";
+import type { Notes } from "@/lib/reading-feedback/feedback";
 import type { AiFeedback } from "@/components/app/useAiFeedback";
 import { forgetChoice, loadChoice, saveChoice } from "@/lib/ai-feedback/choice";
 import { FeedbackError, fetchStatus, transcribe } from "@/lib/ai-feedback/client";
@@ -19,119 +20,177 @@ const fake = (over: Partial<AiFeedback> = {}): AiFeedback => ({
   run: { stage: "idle" },
   check: vi.fn(async () => {}),
   choose: vi.fn(),
-  changeChoice: vi.fn(),
+  turnOff: vi.fn(),
   start: vi.fn(async () => {}),
   cancel: vi.fn(),
   ...over,
 });
 
-describe("AI feedback choice", () => {
-  it("is asked before anything is sent, says plainly that training may happen, and needs an adult", () => {
+const NOTES: Notes = {
+  version: 1,
+  duration: 134,
+  pace: {
+    summary: "Steady at about 140 words a minute, then quicker from about 1:40.",
+    bins: [0, 20, 40, 60, 80, 100, 120].map((from) => ({
+      from,
+      to: Math.min(134, from + 20),
+      wpm: from >= 100 ? 170 : 140,
+      changed: from >= 100,
+    })),
+    changeAt: 100,
+  },
+  moments: [
+    { kind: "pause", at: 42, until: 44, text: "About 2 seconds in “a quiet … corner”." },
+    { kind: "pause", at: 72, until: 74, text: "About 2 seconds in “a busy … afternoon”." },
+    {
+      kind: "skipped",
+      at: 91,
+      until: 95,
+      text: "“who remembers your name, and a stack of stories”. A line may have been skipped.",
+    },
+  ],
+  endsEarly: null,
+  tryNext: "On your next passage, you could lightly mark the phrases before reading it aloud.",
+};
+
+function Card(p: { ai: AiFeedback; notes?: Notes | null; hasPassage?: boolean }) {
+  return (
+    <Panel
+      ai={p.ai}
+      notes={p.notes ?? null}
+      hasPassage={p.hasPassage ?? true}
+      onTurnOn={onTurnOn}
+      onPlayFrom={onPlayFrom}
+      onTurnedOff={vi.fn()}
+    />
+  );
+}
+const onTurnOn = vi.fn();
+const onPlayFrom = vi.fn();
+
+describe("turning AI feedback on", () => {
+  it("asks adult, own voice and consent in one tick box, says plainly that training may happen", () => {
     const ai = fake();
-    render(<Panel ai={ai} hasPassage />);
-    expect(screen.queryByText(/AssemblyAI may use your recording/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "About AI feedback" }));
+    const done = vi.fn();
+    render(<TurnOnPanel ai={ai} onBack={vi.fn()} onDone={done} />);
+    expect(screen.getByRole("heading", { name: "Turn on AI feedback" })).toBeInTheDocument();
     expect(
-      screen.getByText(/AssemblyAI may use your recording to train its AI models/),
+      screen.getByText(/AssemblyAI may use recordings to train its AI models/),
     ).toBeInTheDocument();
     expect(screen.getByText(/doesn[’']t allow switching this off/)).toBeInTheDocument();
     expect(
       screen.getByText(/only been tested on a few recordings by one reader/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/children[’']s corner never uses AI feedback/)).toBeInTheDocument();
+    expect(screen.getByText(/children[’']s corner never uses it/)).toBeInTheDocument();
+    expect(screen.getByText(/Deleting the recording deletes its notes/)).toBeInTheDocument();
     // No opt-out switch is offered, and nothing promises accents will improve or that training can be undone.
     expect(screen.queryByRole("switch")).toBeNull();
     expect(document.body.textContent).not.toMatch(
       /opt out|improve (your|its) accent|reverse|remove .* from training/i,
     );
-
-    const use = screen.getByRole("button", { name: /Use AI feedback, knowing this/ });
-    expect(use).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: /18 or over/ }));
-    fireEvent.click(use);
+    const turnOn = screen.getByRole("button", { name: "Turn on AI feedback" });
+    expect(turnOn).toBeDisabled();
+    expect(screen.getByText("Tick the box to turn it on.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /18 or over.*own voice.*I agree/ }));
+    fireEvent.click(turnOn);
     expect(ai.choose).toHaveBeenCalledWith("ai");
+    expect(done).toHaveBeenCalledWith(true);
     expect(ai.start).not.toHaveBeenCalled();
   });
 
-  it("lets people keep recordings on the device, and change their mind later", () => {
+  it("lets people keep it off", () => {
     const ai = fake();
-    const { rerender } = render(<Panel ai={ai} hasPassage />);
-    fireEvent.click(screen.getByRole("button", { name: "About AI feedback" }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep recordings on this device" }));
+    const done = vi.fn();
+    render(<TurnOnPanel ai={ai} onBack={vi.fn()} onDone={done} />);
+    fireEvent.click(screen.getByRole("button", { name: "Keep it off" }));
     expect(ai.choose).toHaveBeenCalledWith("device");
-    const off = fake({ choice: "device" });
-    rerender(<Panel ai={off} hasPassage />);
-    expect(
-      screen.getByText(/AI feedback is off\. Your recordings stay on this device\./),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    expect(off.changeChoice).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: /Get AI feedback/ })).toBeNull();
+    expect(done).toHaveBeenCalledWith(false);
   });
 
+  it("offers it on the first visit, and from the off row afterwards", () => {
+    const { rerender } = render(<Card ai={fake()} />);
+    fireEvent.click(screen.getByRole("button", { name: "About AI feedback" }));
+    expect(onTurnOn).toHaveBeenCalledTimes(1);
+    rerender(<Card ai={fake({ choice: "device" })} />);
+    expect(screen.getByText("Your recordings stay on this device.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Get notes/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "AI feedback is off. Turn on" }));
+    expect(onTurnOn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("AI feedback card", () => {
   it("sends a recording only when asked, and names the training use next to the button", () => {
     const ai = fake({ choice: "ai" });
-    render(<Panel ai={ai} hasPassage />);
+    render(<Card ai={ai} />);
     expect(
       screen.getByText("Sends this recording to AssemblyAI, which may use it to train its models."),
     ).toBeInTheDocument();
     expect(ai.start).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Get AI feedback on this recording" }));
+    fireEvent.click(screen.getByRole("button", { name: "Get notes on this recording" }));
     expect(ai.start).toHaveBeenCalledTimes(1);
-    // One action in the card: changing the choice lives in the review's ⋯ menu.
-    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
+  });
+
+  it("changes on to off in a sheet that says what happens before confirming", () => {
+    const ai = fake({ choice: "ai" });
+    render(<Card ai={ai} />);
+    fireEvent.click(screen.getByRole("button", { name: "AI feedback is on. Change" }));
+    const sheet = screen.getByRole("dialog", { name: "AI feedback" });
+    expect(within(sheet).getByRole("radio", { name: /^On/ })).toBeChecked();
+    expect(within(sheet).getByRole("button", { name: "Keep it on" })).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("radio", { name: /^Off/ }));
+    expect(
+      within(sheet).getByText(/Notes you already have stay with their recordings/),
+    ).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Turn off AI feedback" }));
+    expect(ai.turnOff).toHaveBeenCalled();
   });
 
   it("explains a pause when the credit runs out, and recording and playback carry on", () => {
     render(
-      <Panel
+      <Card
         ai={fake({
           choice: "ai",
           status: { available: false, paused: "credit", training: "may-be-used", maxMinutes: 20 },
         })}
-        hasPassage
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(
       /free allowance has been used up\. Recording and playback work as usual\./,
     );
-    expect(screen.queryByRole("button", { name: /Get AI feedback/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Get notes/ })).toBeNull();
   });
 
   it("needs a typed or pasted passage", () => {
-    render(<Panel ai={fake({ choice: "ai" })} hasPassage={false} />);
+    render(<Card ai={fake({ choice: "ai" })} hasPassage={false} />);
     expect(screen.getByText(/needs the words you read/)).toBeInTheDocument();
   });
 
-  it("shows feedback with what was over the limit behind “Show more”, not hidden", () => {
-    const item = (at: number, observation: string) => ({
-      kind: "omission",
-      status: "difference" as const,
-      words: "“x”",
-      at,
-      observation,
-    });
-    render(
-      <Panel
-        ai={fake({
-          choice: "ai",
-          run: {
-            stage: "done",
-            feedback: {
-              items: [item(1, "first")],
-              hidden: [item(2, "second")],
-              notShown: 1,
-              tryNext: null,
-            },
-          },
-        })}
-        hasPassage
-      />,
-    );
+  it("shows pace, every moment with Play from, one thing to try and what isn't checked", () => {
+    render(<Card ai={fake({ choice: "ai" })} notes={NOTES} />);
+    expect(screen.getByRole("heading", { name: "Notes on this reading" })).toBeInTheDocument();
     expect(screen.getByText(/can mishear/)).toBeInTheDocument();
-    expect(screen.queryByText("second")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show 1 more" }));
-    expect(screen.getByText("second")).toBeInTheDocument();
+    expect(screen.getByText(/then quicker from about 1:40/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Words a minute in 7 parts/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "3 moments to listen to" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Play from/ })).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Play from 1:31" }));
+    expect(onPlayFrom).toHaveBeenCalledWith(89.5);
+    expect(screen.getByRole("heading", { name: "One thing to try" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Not checked: pronunciation, accent and single words/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show \d+ more/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Get notes/ })).toBeNull();
+  });
+
+  it("keeps the notes after AI feedback is turned off, and says so", () => {
+    render(<Card ai={fake({ choice: "device" })} notes={NOTES} />);
+    expect(
+      screen.getByText(/AI feedback is off now\. These notes were made before/),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Play from/ })).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "AI feedback is off. Turn on" })).toBeInTheDocument();
   });
 });
 
@@ -200,7 +259,7 @@ describe("children's corner", () => {
       /feedback\b|AiFeedback/,
     );
     const route = readFileSync(join(process.cwd(), "src/routes/index.tsx"), "utf8");
-    expect(route.match(/<AiFeedback /g)).toHaveLength(1);
+    expect(route.match(/<AiFeedback\s/g)).toHaveLength(1);
     expect(route).toMatch(/useAiFeedback\(main\.rec\.take/);
   });
 });

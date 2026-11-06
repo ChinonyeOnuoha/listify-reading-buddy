@@ -198,28 +198,31 @@ export function StepHead({
   of?: number | undefined;
   name?: string;
 }) {
+  const back = (
+    <button type="button" className="btn-quiet -ml-2.5 shrink-0" onClick={onBack}>
+      <ArrowLeft className="size-4" aria-hidden /> {backLabel}
+    </button>
+  );
+  if (!(step && of)) return <div className="-mt-2 flex">{back}</div>;
+  // Back and the step label share one row, so the step takes less height (it sits under the nook on phones).
   return (
-    <>
-      <button type="button" className="btn-quiet -mt-2 -ml-2.5 self-start" onClick={onBack}>
-        <ArrowLeft className="size-4" aria-hidden /> {backLabel}
-      </button>
-      {step && of ? (
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-          <span>
-            Step {step} of {of}
-            {name ? ` · ${name}` : ""}
-          </span>
-          <div className="flex gap-1" aria-hidden>
-            {Array.from({ length: of }, (_, i) => (
-              <i
-                key={i}
-                className={`h-1 flex-1 rounded-full ${i < step ? "bg-primary" : "bg-selected"}`}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </>
+    <div className="-mt-2 flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3">
+        {back}
+        <span className="text-sm text-muted-foreground">
+          Step {step} of {of}
+          {name ? ` · ${name}` : ""}
+        </span>
+      </div>
+      <div className="flex gap-1" aria-hidden>
+        {Array.from({ length: of }, (_, i) => (
+          <i
+            key={i}
+            className={`h-1 flex-1 rounded-full ${i < step ? "bg-primary" : "bg-selected"}`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -8,7 +8,7 @@ export type Choice = "ai" | "device";
 
 const KEY = "reading-buddy:ai-feedback-choice";
 /** Bump when the consent wording changes in a way that needs asking again. */
-export const CONSENT_VERSION = 1;
+export const CONSENT_VERSION = 2;
 
 type Saved = { choice: Choice; training: Training; version: number };
 

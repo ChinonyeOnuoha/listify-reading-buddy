@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { align, mergePauses, timestampQuality, type Pause } from "./analysis";
-import { buildFeedback, paceChange } from "./feedback";
+import { buildFeedback, paceBins, paceChange } from "./feedback";
 
 const PASSAGE =
   "The cat sat on the mat. It was warm and quiet there. A bird sang in the tree. The cat did not move at all. Then the sun went down.";
@@ -24,47 +24,70 @@ const fb = (words: ReturnType<typeof read>, pauses: Pause[] = []) =>
     quality: timestampQuality(words),
   });
 
-describe("prepared feedback", () => {
-  it("acknowledges a clean reading briefly, without criticism", () => {
+describe("notes on a reading", () => {
+  it("says nothing stood out for a clean reading, with nothing to try", () => {
     const f = fb(read(plain));
-    expect(f.items).toHaveLength(1);
-    expect(f.items[0]!.status).toBe("clear");
+    expect(f.moments).toEqual([]);
     expect(f.tryNext).toBeNull();
+    expect(f.pace.summary).toMatch(/^Steady all the way through, at about \d+ words a minute\.$/);
   });
 
-  it("shows a repetition with its words and offers one optional thing for a new passage", () => {
-    const f = fb(read(plain.replace("sang in", "sang sang in")));
-    const rep = f.items.find((i) => i.kind === "repetition")!;
-    expect(rep.observation).toContain("“sang” was heard twice");
-    expect(rep.words).toContain("sang");
-    expect(f.tryNext).toMatch(/next passage/);
+  it("leaves single-word differences out, because speech recognition mishears them", () => {
+    expect(fb(read(plain.replace("bird", "bud"))).moments).toEqual([]);
+    expect(fb(read(plain.replace("warm and quiet", "warm quiet"))).moments).toEqual([]);
+    expect(fb(read(plain.replace("sang in", "sang sang in"))).moments).toEqual([]);
   });
 
-  it("names an omitted word and the place it belongs", () => {
-    const f = fb(read(plain.replace("warm and quiet", "warm quiet")));
-    const om = f.items.find((i) => i.kind === "omission")!;
-    expect(om.observation).toBe("“and” wasn't heard here.");
-    expect(om.words).toContain("warm and quiet");
+  it("lists a skipped stretch of 3 or more words with the words and a time to play from", () => {
+    const f = fb(read(plain.replace("A bird sang in the tree ", "")));
+    expect(f.moments).toHaveLength(1);
+    const m = f.moments[0]!;
+    expect(m.kind).toBe("skipped");
+    expect(m.text).toBe("“A bird sang in the tree”. A line may have been skipped.");
+    expect(m.at).toBeGreaterThan(0);
+    expect(f.tryNext).toMatch(/finger or a pen/);
   });
 
-  it("treats a low-confidence difference as couldn't-assess, not as a reading mistake", () => {
-    const words = read(plain.replace("bird", "bud"));
-    words.find((w) => w.text === "bud")!.confidence = 0.3;
-    const f = fb(words);
-    expect(f.items.some((i) => i.status === "difference")).toBe(false);
-    expect(f.items.find((i) => i.kind === "unclear")!.status).toBe("unsure");
+  it("lists a repeated stretch of 3 or more words", () => {
+    const f = fb(read(plain.replace("sat on the mat", "sat on the sat on the mat")));
+    const m = f.moments.find((x) => x.kind === "repeated");
+    expect(m?.text).toBe("“sat on the” was heard twice in a row.");
+  });
+
+  it("says once when the recording stops before the passage, instead of listing what's left", () => {
+    const f = fb(
+      read("The cat sat on the mat It was warm and quiet there A bird sang in the tree"),
+    );
+    expect(f.moments).toEqual([]);
+    expect(f.endsEarly).toMatch(/^The recording ends before “The cat did not move/);
   });
 
   it("mentions a long pause inside a sentence but not one after a full stop", () => {
     const words = read(plain);
     const at = (w: string) => words.find((x) => x.text === w)!;
-    const inside: Pause = { start: at("on").end + 0.05, end: at("on").end + 2.05, duration: 2 };
-    const between: Pause = { start: at("mat").end + 0.05, end: at("mat").end + 2.05, duration: 2 };
+    // Leave 2 s of silence after a word: everything after it starts 2 s later.
+    const gapAfter = (w: string) => {
+      const p: Pause = { start: at(w).end + 0.05, end: at(w).end + 2.05, duration: 2 };
+      for (const x of words.slice(words.indexOf(at(w)) + 1)) {
+        x.start += 2.1;
+        x.end += 2.1;
+      }
+      return p;
+    };
+    const inside = gapAfter("on");
+    const between = gapAfter("mat");
     const f = fb(words, [inside, between]);
-    const pauses = f.items.filter((i) => i.kind === "pause");
-    expect(pauses).toHaveLength(1);
-    expect(pauses[0]!.words).toBe("“on … the”");
-    expect(pauses[0]!.status).toBe("review");
+    expect(f.moments).toHaveLength(1);
+    expect(f.moments[0]).toMatchObject({
+      kind: "pause",
+      text: "About 2 seconds in “sat on … the”.",
+    });
+  });
+
+  it("ignores a “silence” that has words heard inside it", () => {
+    const words = read(plain);
+    const quiet: Pause = { start: 1.1, end: 12, duration: 10.9 };
+    expect(fb(words, [quiet]).moments).toEqual([]);
   });
 
   it("reports a pace change only with reliable timings, and never guesses why", () => {
@@ -83,17 +106,28 @@ describe("prepared feedback", () => {
     expect(change?.words).toBe("The cat did not");
     expect(change!.after).toBeGreaterThan(change!.before);
     const f = fb(words);
-    expect(f.items.find((i) => i.kind === "pace")!.observation).toMatch(/quicker/);
-    for (const i of f.items)
-      expect(i.observation).not.toMatch(/because|nervous|accent is|score|tired|struggl/i);
+    expect(f.pace.summary).toMatch(/then quicker from about 0:\d\d\./);
+    expect(f.tryNext).toMatch(/one easy breath/);
+    const text = JSON.stringify(f);
+    expect(text).not.toMatch(/because|nervous|accent is|score|tired|struggl|mistake/i);
 
     const untimed = words.map((w) => ({ ...w, start: null as unknown as number }));
-    expect(fb(untimed).items.find((i) => i.kind === "pace")!.status).toBe("unsure");
+    expect(fb(untimed).pace).toMatchObject({ bins: [], changeAt: null });
+    expect(fb(untimed).pace.summary).toMatch(/couldn't be measured/);
   });
 
-  it("doesn't report differences on names or titles", () => {
-    const passage = "Every evening Mrs Okafor walked to Willow Lane. She sat down.";
-    const words = read("Every evening missus okafo walked to widow lane She sat down");
+  it("charts words a minute every 20 seconds, with pauses taken out", () => {
+    const words = read(plain + " " + plain + " " + plain + " " + plain, 0.4);
+    const bins = paceBins(words, [], null);
+    expect(bins.length).toBeGreaterThanOrEqual(3);
+    for (const b of bins.slice(0, -1)) expect(b.wpm).toBeGreaterThan(140);
+    const pause: Pause = { start: 2, end: 12, duration: 10 };
+    expect(paceBins(words, [pause], null)[0]!.wpm).toBeGreaterThan(bins[0]!.wpm);
+  });
+
+  it("doesn't report skipped names or titles", () => {
+    const passage = "Every evening Mrs Okafor Willow walked to the lane. She sat down.";
+    const words = read("Every evening walked to the lane She sat down");
     const f = buildFeedback({
       passage,
       ops: align(passage, words),
@@ -101,7 +135,7 @@ describe("prepared feedback", () => {
       pauses: [],
       quality: timestampQuality(words),
     });
-    expect(f.items.map((i) => i.status)).toEqual(["clear"]);
+    expect(f.moments).toEqual([]);
   });
 
   it("treats a silence split by a brief click as one pause, and leaves it out of pace", () => {
@@ -124,6 +158,11 @@ describe("prepared feedback", () => {
       duration: 4.8,
     };
     expect(paceChange(PASSAGE, align(PASSAGE, words), [pause]).change).toBeNull();
-    expect(fb(words, [pause]).items.map((i) => i.kind)).toEqual(["pause"]);
+    expect(fb(words, [pause]).moments.map((i) => i.kind)).toEqual(["pause"]);
+  });
+
+  it("is plain data that can be saved with the recording", () => {
+    const f = fb(read(plain.replace("A bird sang in the tree ", "")));
+    expect(JSON.parse(JSON.stringify(f))).toEqual(f);
   });
 });
